@@ -27,5 +27,8 @@ fun AppNavHost(navController: NavHostController) {
         composable("splash") { SplashScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("register") { SignupScreen(navController) }
+        composable("forgot_password") { ForgotPasswordScreen(navController) }
+        composable("profil") { ProfilScreen(navController) }
+        composable("update_profile") { UpdateProfilScreen(navController) }
     }
 }

@@ -7,8 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,21 +25,58 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
+import tn.esprit.coidam.data.repository.AuthRepository
+import android.content.Context
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForgotPasswordPage(navController: NavController) {
+fun ForgotPasswordScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
     var isSuccess by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     val scope = rememberCoroutineScope()
 
     fun isValidEmail(email: String): Boolean {
         val emailRegex = Regex("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}\$")
         return emailRegex.matches(email)
+    }
+
+    fun forgotPassword() {
+        if (email.isEmpty()) {
+            dialogMessage = "Please enter your email address."
+            isSuccess = false
+            showDialog = true
+            return
+        }
+
+        if (!isValidEmail(email.trim())) {
+            dialogMessage = "Please enter a valid email address."
+            isSuccess = false
+            showDialog = true
+            return
+        }
+
+        scope.launch {
+            isLoading = true
+            val result = authRepository.forgotPassword(email.trim())
+            isLoading = false
+
+            result.onSuccess {
+                dialogMessage = it
+                isSuccess = true
+                showDialog = true
+            }.onFailure { exception ->
+                dialogMessage = exception.message ?: "Failed to send reset email. Please try again."
+                isSuccess = false
+                showDialog = true
+            }
+        }
     }
 
 
@@ -64,7 +102,7 @@ fun ForgotPasswordPage(navController: NavController) {
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color.White
                         )
@@ -146,7 +184,7 @@ fun ForgotPasswordPage(navController: NavController) {
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Divider(
+                        HorizontalDivider(
                             color = Color.Gray,
                             thickness = 1.dp
                         )
@@ -156,20 +194,28 @@ fun ForgotPasswordPage(navController: NavController) {
 
                     // Reset Password Button
                     Button(
-                        onClick = {  },
+                        onClick = { forgotPassword() },
+                        enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF70CEE3)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Reset Password",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Reset Password",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(15.dp))
@@ -223,6 +269,6 @@ fun ForgotPasswordPage(navController: NavController) {
 @Composable
 fun ForgotPasswordPagePreview() {
     MaterialTheme {
-        ForgotPasswordPage(navController = NavController(LocalContext.current))
+        ForgotPasswordScreen(navController = NavController(LocalContext.current))
     }
 }

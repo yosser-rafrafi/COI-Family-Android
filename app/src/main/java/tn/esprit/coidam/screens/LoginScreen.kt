@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,12 +23,75 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
+import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.data.models.UserOption
 
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogMessage by remember { mutableStateOf("") }
+    var showUserSelection by remember { mutableStateOf(false) }
+    var userOptions by remember { mutableStateOf<List<UserOption>>(emptyList()) }
+    
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+
+    fun signIn() {
+        if (email.isBlank() || password.isBlank()) {
+            dialogMessage = "Please fill in all fields"
+            showDialog = true
+            return
+        }
+
+        scope.launch {
+            isLoading = true
+            val result = authRepository.signIn(email.trim(), password)
+            isLoading = false
+
+            result.onSuccess { authResponse ->
+                // Check if user needs to select profile
+                if (authResponse.options != null && authResponse.options.isNotEmpty()) {
+                    userOptions = authResponse.options
+                    showUserSelection = true
+                } else if (authResponse.access_token != null) {
+                    // Login successful, navigate to profile
+                    navController.navigate("profil") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                } else {
+                    dialogMessage = authResponse.error ?: "Login failed"
+                    showDialog = true
+                }
+            }.onFailure { exception ->
+                dialogMessage = exception.message ?: "Login failed. Please check your credentials."
+                showDialog = true
+            }
+        }
+    }
+
+    fun loginAsUser(userId: String, userType: String) {
+        scope.launch {
+            isLoading = true
+            val result = authRepository.loginAs(userId, userType)
+            isLoading = false
+
+            result.onSuccess {
+                navController.navigate("profil") {
+                    popUpTo("login") { inclusive = true }
+                }
+            }.onFailure { exception ->
+                dialogMessage = exception.message ?: "Failed to login"
+                showDialog = true
+                showUserSelection = false
+            }
+        }
+    }
 
 
 
@@ -108,7 +172,7 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Divider(
+                    HorizontalDivider(
                         color = Color.Gray,
                         thickness = 1.dp
                     )
@@ -147,7 +211,7 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Divider(
+                    HorizontalDivider(
                         color = Color.Gray,
                         thickness = 1.dp
                     )
@@ -157,7 +221,8 @@ fun LoginScreen(navController: NavController) {
 
                 // Sign In Button
                 Button(
-                    onClick = { },
+                    onClick = { signIn() },
+                    enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF70CEE3)
                     ),
@@ -165,13 +230,20 @@ fun LoginScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
-                    Text(
-                        text = "Sign In",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Sign In",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
                 }
 
                 // Forgot Password
@@ -212,6 +284,70 @@ fun LoginScreen(navController: NavController) {
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
+    }
+
+    // User Selection Dialog
+    if (showUserSelection && userOptions.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showUserSelection = false },
+            title = { Text("Select Profile") },
+            text = {
+                Column {
+                    Text("Choose which profile you want to use:")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    userOptions.forEach { option ->
+                        Button(
+                            onClick = {
+                                loginAsUser(option.userId, option.userType)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (option.userType == "companion") Color(0xFF4CAF50) else Color(0xFFFF9800)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = option.userType.uppercase(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                if (!option.email.isNullOrEmpty()) {
+                                    Text(
+                                        text = option.email,
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.9f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showUserSelection = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Error Dialog
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Error") },
+            text = { Text(dialogMessage) },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

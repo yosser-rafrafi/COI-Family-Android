@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +25,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
+import tn.esprit.coidam.data.repository.AuthRepository
+import android.content.Context
 
 
 @Composable
@@ -31,16 +34,13 @@ fun SignupScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var phoneNumber by remember { mutableStateOf("") }
-    var university by remember { mutableStateOf("") }
-    var userType by remember { mutableStateOf("companion") }
-
+    var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
+    var isSuccess by remember { mutableStateOf(false) }
 
-
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     val scope = rememberCoroutineScope()
 
     fun isValidEmail(email: String): Boolean {
@@ -48,38 +48,44 @@ fun SignupScreen(navController: NavController) {
         return emailRegex.matches(email)
     }
 
-    fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        val phoneRegex = Regex("^[0-9]{10}\$")
-        return phoneRegex.matches(phoneNumber)
-    }
-
-
-
     fun signUp() {
         scope.launch {
             // Validate all fields
             when {
-                firstName.isEmpty() || lastName.isEmpty() || phoneNumber.isEmpty() ||
-                        email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() -> {
+                email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() -> {
                     dialogMessage = "Please fill in all fields."
+                    isSuccess = false
                     showDialog = true
                 }
                 !isValidEmail(email.trim()) -> {
                     dialogMessage = "Please enter a valid email address."
+                    isSuccess = false
                     showDialog = true
                 }
-
-                !isValidPhoneNumber(phoneNumber.trim()) -> {
-                    dialogMessage = "Please enter a valid phone number."
+                password.length < 6 -> {
+                    dialogMessage = "Password must be at least 6 characters."
+                    isSuccess = false
                     showDialog = true
                 }
                 password.trim() != confirmPassword.trim() -> {
                     dialogMessage = "Passwords do not match."
+                    isSuccess = false
                     showDialog = true
                 }
                 else -> {
-                    dialogMessage = "Registration successful!"
-                    showDialog = true
+                    isLoading = true
+                    val result = authRepository.signUp(email.trim(), password)
+                    isLoading = false
+
+                    result.onSuccess {
+                        dialogMessage = it.message ?: "Registration successful! Please login."
+                        isSuccess = true
+                        showDialog = true
+                    }.onFailure { exception ->
+                        dialogMessage = exception.message ?: "Registration failed. Please try again."
+                        isSuccess = false
+                        showDialog = true
+                    }
                 }
             }
         }
@@ -140,34 +146,6 @@ fun SignupScreen(navController: NavController) {
                 ) {
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // First Name Field
-                    CustomTextField(
-                        value = firstName,
-                        onValueChange = { firstName = it },
-                        placeholder = "First Name"
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Last Name Field
-                    CustomTextField(
-                        value = lastName,
-                        onValueChange = { lastName = it },
-                        placeholder = "Last Name"
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Phone Number Field
-                    CustomTextField(
-                        value = phoneNumber,
-                        onValueChange = { phoneNumber = it },
-                        placeholder = "Phone Number"
-                    )
-
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
                     // Email Field
                     CustomTextField(
                         value = email,
@@ -200,19 +178,27 @@ fun SignupScreen(navController: NavController) {
                     // Sign Up Button
                     Button(
                         onClick = { signUp() },
+                        enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF70CEE3)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Sign Up",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Sign Up",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(15.dp))
@@ -248,10 +234,17 @@ fun SignupScreen(navController: NavController) {
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("Message") },
+            title = { Text(if (isSuccess) "Success" else "Error") },
             text = { Text(dialogMessage) },
             confirmButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(onClick = {
+                    showDialog = false
+                    if (isSuccess) {
+                        navController.navigate("login") {
+                            popUpTo("register") { inclusive = true }
+                        }
+                    }
+                }) {
                     Text("OK")
                 }
             }
@@ -287,7 +280,7 @@ fun CustomTextField(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
         )
-        Divider(
+        HorizontalDivider(
             color = Color.Gray,
             thickness = 1.dp
         )
