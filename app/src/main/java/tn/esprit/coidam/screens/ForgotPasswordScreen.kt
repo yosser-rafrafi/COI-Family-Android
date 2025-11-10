@@ -160,7 +160,7 @@ fun ForgotPasswordScreen(navController: NavController) {
                 ) {
                     Text(
                         text = if (codeSent) "ENTER CODE" else "FORGOT PASSWORD?",
-                        fontSize = 32.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
@@ -239,8 +239,7 @@ fun ForgotPasswordScreen(navController: NavController) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp),
+                                    .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 repeat(6) { index ->
@@ -259,14 +258,14 @@ fun ForgotPasswordScreen(navController: NavController) {
                                             }
                                         },
                                         singleLine = true,
-                                        textStyle = LocalTextStyle.current.copy(fontSize = 20.sp),
+                                        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
                                         colors = TextFieldDefaults.colors(
                                             focusedContainerColor = Color.Transparent,
                                             unfocusedContainerColor = Color.Transparent,
                                             disabledContainerColor = Color.Transparent
                                         ),
                                         modifier = Modifier
-                                            .width(45.dp)
+                                            .width(40.dp)
                                             .height(55.dp)
                                             .focusRequester(focusRequesters[index]),
                                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number)
