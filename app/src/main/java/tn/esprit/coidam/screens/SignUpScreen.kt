@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
 import android.content.Context
+import tn.esprit.coidam.ui.theme.ThemedBackground
 
 
 @Composable
@@ -95,12 +96,7 @@ fun SignupScreen(navController: NavController) {
         modifier = Modifier.fillMaxSize()
     ) {
         // Background Image
-        Image(
-            painter = painterResource(id = R.drawable.clipfly),
-            contentDescription = "Background",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        ThemedBackground()
 
         // Content
         Column(

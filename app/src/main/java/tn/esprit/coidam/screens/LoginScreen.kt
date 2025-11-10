@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
 import tn.esprit.coidam.data.models.UserOption
+import tn.esprit.coidam.ui.theme.ThemedBackground
 
 @Composable
 fun LoginScreen(navController: NavController) {
@@ -99,12 +100,7 @@ fun LoginScreen(navController: NavController) {
         modifier = Modifier.fillMaxSize()
     ) {
         // Background Image
-        Image(
-            painter = painterResource(id = R.drawable.clipfly),
-            contentDescription = "Background",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        ThemedBackground()
 
         // Content
         Column(
