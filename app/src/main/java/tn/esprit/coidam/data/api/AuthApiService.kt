@@ -20,7 +20,7 @@ interface AuthApiService {
     suspend fun loginAs(@Body dto: LoginAsDto): Response<AuthResponse>
 
     @POST("auth/forgot-password")
-    suspend fun forgotPassword(@Body dto: ForgotPasswordDto): Response<Map<String, String>>
+    suspend fun forgotPassword(@Body dto: ForgotPasswordDto): Response<Map<String, Any>>
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body dto: ResetPasswordDto): Response<Map<String, Any>>

@@ -119,12 +119,31 @@ class AuthRepository(private val context: Context) {
             val response = apiService.forgotPassword(dto)
 
             if (response.isSuccessful) {
-                // Explicitly cast the value from the map to a String
-                val message = response.body()?.get("message") as? String ?: "Password reset email sent"
+                val responseBody = response.body()
+                if (responseBody != null) {
+                    Log.d(TAG, "Forgot password response: $responseBody")
+                }
+                val message = when {
+                    responseBody == null -> "Password reset email sent"
+                    responseBody["message"] is String -> responseBody["message"] as String
+                    responseBody["message"] != null -> {
+                        // If message is an object, try to extract a meaningful string
+                        val messageObj = responseBody["message"]
+                        if (messageObj is Map<*, *>) {
+                            (messageObj["message"] as? String) ?: 
+                            (messageObj["text"] as? String) ?: 
+                            messageObj.toString()
+                        } else {
+                            messageObj.toString()
+                        }
+                    }
+                    else -> "Password reset email sent"
+                }
                 Result.success(message)
             } else {
-                val errorMessage = response.errorBody()?.string() ?: "Failed to send reset email"
-                Log.e(TAG, "Forgot password error: $errorMessage")
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "Forgot password error response: $errorBody")
+                val errorMessage = errorBody ?: "Failed to send reset email"
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
