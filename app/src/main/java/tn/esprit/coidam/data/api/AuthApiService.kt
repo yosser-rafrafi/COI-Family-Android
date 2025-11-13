@@ -8,6 +8,11 @@ interface AuthApiService {
     @POST("auth/signup")
     suspend fun signUp(@Body dto: SignUpDto): Response<SignUpResponse>
 
+    @POST("auth/google-signin")
+    suspend fun signInWithGoogle(
+        @Body dto: Map<String, String> // on envoie { "idToken": "..." }
+    ): Response<AuthResponse>
+
     @POST("auth/signin")
     suspend fun signIn(@Body dto: SignInDto): Response<AuthResponse>
 

@@ -1,5 +1,6 @@
 package tn.esprit.coidam.screens
 
+import android.R.attr.onClick
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +28,8 @@ import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
 import android.content.Context
+import androidx.activity.compose.LocalActivity
+import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.ui.theme.ThemedBackground
 
 
@@ -219,6 +222,12 @@ fun SignupScreen(navController: NavController) {
                     }
 
                     Spacer(modifier = Modifier.height(15.dp))
+
+
+                    GoogleSignInButton()
+
+
+
                 }
 
                 Spacer(modifier = Modifier.height(30.dp))
@@ -289,5 +298,28 @@ fun CustomTextField(
 fun SignupScreenPreview(){
     MaterialTheme {
         SignupScreen(navController = NavController(LocalContext.current))
+    }
+}
+
+
+@Composable
+fun GoogleSignInButton() {
+    val activity = LocalActivity.current as? MainActivity
+
+    Button(
+        onClick = {
+            activity?.signInWithGoogle()
+        },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.mail),
+            contentDescription = "Google Logo",
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Sign in with Google", color = Color.Black)
     }
 }

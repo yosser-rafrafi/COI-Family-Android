@@ -176,6 +176,26 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    suspend fun signInWithGoogle(idToken: String): Result<AuthResponse> {
+        return try {
+            val dto = mapOf("idToken" to idToken)
+            val response = apiService.signInWithGoogle(dto)
+            if (response.isSuccessful && response.body() != null) {
+                val authResponse = response.body()!!
+                authResponse.access_token?.let { tokenManager.saveToken(it) }
+                Result.success(authResponse)
+            } else {
+                val error = response.errorBody()?.string() ?: "Google Sign-In failed"
+                Log.e(TAG, "Google Sign-In backend error: $error")
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Google Sign-In exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+
     suspend fun getProfile(): Result<ProfileResponse> {
         return try {
             val token = tokenManager.getTokenSync()
