@@ -15,6 +15,10 @@ interface AuthApiService {
 
     @POST("auth/signin")
     suspend fun signIn(@Body dto: SignInDto): Response<AuthResponse>
+    // Ajoute ce GET pour tester le réseau
+
+    @GET("auth/signin")
+    suspend fun testGet(): Response<String>
 
     @POST("auth/login-as")
     suspend fun loginAs(@Body dto: LoginAsDto): Response<AuthResponse>

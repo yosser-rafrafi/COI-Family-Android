@@ -17,6 +17,7 @@ class TokenManager(private val context: Context) {
         private val TOKEN_KEY = stringPreferencesKey("auth_token")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val USER_TYPE_KEY = stringPreferencesKey("user_type")
+        private val USER_EMAIL_KEY = stringPreferencesKey("user_email")
     }
 
     suspend fun saveToken(token: String) {
@@ -49,6 +50,12 @@ class TokenManager(private val context: Context) {
         }
     }
 
+    suspend fun getUserIdSync(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[USER_ID_KEY]
+        }.first()
+    }
+
     suspend fun saveUserType(userType: String) {
         context.dataStore.edit { preferences ->
             preferences[USER_TYPE_KEY] = userType
@@ -59,6 +66,24 @@ class TokenManager(private val context: Context) {
         return context.dataStore.data.map { preferences ->
             preferences[USER_TYPE_KEY]
         }
+    }
+
+    suspend fun getUserTypeSync(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[USER_TYPE_KEY]
+        }.first()
+    }
+
+    suspend fun saveUserEmail(email: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_EMAIL_KEY] = email
+        }
+    }
+
+    suspend fun getUserEmailSync(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[USER_EMAIL_KEY]
+        }.first()
     }
 
     suspend fun clear() {

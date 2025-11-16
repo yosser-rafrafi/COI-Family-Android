@@ -26,13 +26,13 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun SplashScreen(navController: NavController) {
-   /* LaunchedEffect(Unit) {
-        delay(2500)
+    LaunchedEffect(Unit) {
+        delay(5000)
         navController.navigate("login") {
             popUpTo("splash") { inclusive = true }
         }
     }
-*/
+    
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -43,33 +43,6 @@ fun SplashScreen(navController: NavController) {
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
-
-        // Get Started Button
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 80.dp),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Button(
-                onClick = {
-                    navController.navigate("login")
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White
-                ),
-                shape = RoundedCornerShape(30.dp),
-                modifier = Modifier.padding(horizontal = 40.dp),
-                contentPadding = PaddingValues(horizontal = 40.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = "Get Started",
-                    color = Color(0xFF129FA9),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
     }
 }
 

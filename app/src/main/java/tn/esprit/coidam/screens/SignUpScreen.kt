@@ -31,10 +31,15 @@ import android.content.Context
 import androidx.activity.compose.LocalActivity
 import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.ui.theme.ThemedBackground
+import androidx.activity.compose.BackHandler
 
 
 @Composable
 fun SignupScreen(navController: NavController) {
+    // Disable back navigation
+    BackHandler(enabled = true) {
+        // Do nothing - prevent back navigation
+    }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -82,9 +87,26 @@ fun SignupScreen(navController: NavController) {
                     isLoading = false
 
                     result.onSuccess {
-                        dialogMessage = it.message ?: "Registration successful! Please login."
-                        isSuccess = true
-                        showDialog = true
+                        // After successful signup, automatically sign in
+                        scope.launch {
+                            val signInResult = authRepository.signIn(email.trim(), password)
+                            signInResult.onSuccess { authResponse ->
+                                if (authResponse.access_token != null) {
+                                    // Navigate directly to dashboard
+                                    navController.navigate("dashboard") {
+                                        popUpTo("register") { inclusive = true }
+                                    }
+                                } else {
+                                    dialogMessage = it.message ?: "Registration successful! Please login."
+                                    isSuccess = true
+                                    showDialog = true
+                                }
+                            }.onFailure { exception ->
+                                dialogMessage = it.message ?: "Registration successful! Please login."
+                                isSuccess = true
+                                showDialog = true
+                            }
+                        }
                     }.onFailure { exception ->
                         dialogMessage = exception.message ?: "Registration failed. Please try again."
                         isSuccess = false
@@ -244,11 +266,6 @@ fun SignupScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    if (isSuccess) {
-                        navController.navigate("login") {
-                            popUpTo("register") { inclusive = true }
-                        }
-                    }
                 }) {
                     Text("OK")
                 }
@@ -298,28 +315,5 @@ fun CustomTextField(
 fun SignupScreenPreview(){
     MaterialTheme {
         SignupScreen(navController = NavController(LocalContext.current))
-    }
-}
-
-
-@Composable
-fun GoogleSignInButton() {
-    val activity = LocalActivity.current as? MainActivity
-
-    Button(
-        onClick = {
-            activity?.signInWithGoogle()
-        },
-        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.mail),
-            contentDescription = "Google Logo",
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Sign in with Google", color = Color.Black)
     }
 }

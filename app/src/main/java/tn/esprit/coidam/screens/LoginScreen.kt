@@ -26,18 +26,22 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
-import tn.esprit.coidam.data.models.UserOption
 import tn.esprit.coidam.ui.theme.ThemedBackground
+import androidx.activity.compose.LocalActivity
+import tn.esprit.coidam.MainActivity
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun LoginScreen(navController: NavController) {
+    // Disable back navigation
+    BackHandler(enabled = true) {
+        // Do nothing - prevent back navigation
+    }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
-    var showUserSelection by remember { mutableStateOf(false) }
-    var userOptions by remember { mutableStateOf<List<UserOption>>(emptyList()) }
     
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
@@ -56,13 +60,23 @@ fun LoginScreen(navController: NavController) {
             isLoading = false
 
             result.onSuccess { authResponse ->
-                // Check if user needs to select profile
+                // Automatically login as companion profile
                 if (authResponse.options != null && authResponse.options.isNotEmpty()) {
-                    userOptions = authResponse.options
-                    showUserSelection = true
+                    // Find companion option or use first one
+                    val companionOption = authResponse.options.find { it.userType == "companion" } 
+                        ?: authResponse.options.first()
+                    val loginResult = authRepository.loginAs(companionOption.userId, companionOption.userType)
+                    loginResult.onSuccess {
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }.onFailure { exception ->
+                        dialogMessage = exception.message ?: "Failed to login"
+                        showDialog = true
+                    }
                 } else if (authResponse.access_token != null) {
-                    // Login successful, navigate to profile
-                    navController.navigate("profil") {
+                    // Login successful, navigate to dashboard
+                    navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
                 } else {
@@ -72,24 +86,6 @@ fun LoginScreen(navController: NavController) {
             }.onFailure { exception ->
                 dialogMessage = exception.message ?: "Login failed. Please check your credentials."
                 showDialog = true
-            }
-        }
-    }
-
-    fun loginAsUser(userId: String, userType: String) {
-        scope.launch {
-            isLoading = true
-            val result = authRepository.loginAs(userId, userType)
-            isLoading = false
-
-            result.onSuccess {
-                navController.navigate("profil") {
-                    popUpTo("login") { inclusive = true }
-                }
-            }.onFailure { exception ->
-                dialogMessage = exception.message ?: "Failed to login"
-                showDialog = true
-                showUserSelection = false
             }
         }
     }
@@ -277,59 +273,14 @@ fun LoginScreen(navController: NavController) {
                     )
                 }
 
+                Spacer(modifier = Modifier.height(15.dp))
+
+                // Google Sign-In Button
+                GoogleSignInButton()
+
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
-    }
-
-    // User Selection Dialog
-    if (showUserSelection && userOptions.isNotEmpty()) {
-        AlertDialog(
-            onDismissRequest = { showUserSelection = false },
-            title = { Text("Select Profile") },
-            text = {
-                Column {
-                    Text("Choose which profile you want to use:")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    userOptions.forEach { option ->
-                        Button(
-                            onClick = {
-                                loginAsUser(option.userId, option.userType)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (option.userType == "companion") Color(0xFF4CAF50) else Color(0xFFFF9800)
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = option.userType.uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                if (!option.email.isNullOrEmpty()) {
-                                    Text(
-                                        text = option.email,
-                                        fontSize = 12.sp,
-                                        color = Color.White.copy(alpha = 0.9f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showUserSelection = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 
     // Error Dialog
@@ -344,6 +295,28 @@ fun LoginScreen(navController: NavController) {
                 }
             }
         )
+    }
+}
+
+@Composable
+fun GoogleSignInButton() {
+    val activity = LocalActivity.current as? MainActivity
+
+    Button(
+        onClick = {
+            activity?.signInWithGoogle()
+        },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.mail),
+            contentDescription = "Google Logo",
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Sign in with Google", color = Color.Black)
     }
 }
 

@@ -61,6 +61,9 @@ class AuthRepository(private val context: Context) {
                     authResponse.user?.userType?.let { userType ->
                         tokenManager.saveUserType(userType)
                     }
+                    authResponse.user?.email?.let { email ->
+                        tokenManager.saveUserEmail(email)
+                    }
                 }
                 
                 Result.success(authResponse)
@@ -98,6 +101,9 @@ class AuthRepository(private val context: Context) {
                     val finalUserType = authResponse.user?.userType ?: userType
                     tokenManager.saveUserId(finalUserId)
                     tokenManager.saveUserType(finalUserType)
+                    authResponse.user?.email?.let { email ->
+                        tokenManager.saveUserEmail(email)
+                    }
                 }
                 
                 Result.success(authResponse)
@@ -201,18 +207,39 @@ class AuthRepository(private val context: Context) {
             val response = apiService.signInWithGoogle(dto)
             if (response.isSuccessful && response.body() != null) {
                 val authResponse = response.body()!!
-                authResponse.access_token?.let { tokenManager.saveToken(it) }
+                // Save token and user info
+                authResponse.access_token?.let { token ->
+                    tokenManager.saveToken(token)
+                    authResponse.user?.getUserId()?.let { userId ->
+                        tokenManager.saveUserId(userId)
+                    }
+                    authResponse.user?.userType?.let { userType ->
+                        tokenManager.saveUserType(userType)
+                    }
+                    authResponse.user?.email?.let { email ->
+                        tokenManager.saveUserEmail(email)
+                    }
+                }
                 Result.success(authResponse)
             } else {
-                val error = response.errorBody()?.string() ?: "Google Sign-In failed"
-                Log.e(TAG, "Google Sign-In backend error: $error")
-                Result.failure(Exception(error))
+                val errorBody = response.errorBody()?.string() ?: "Google Sign-In failed"
+                val statusCode = response.code()
+                Log.e(TAG, "Google Sign-In backend error ($statusCode): $errorBody")
+                
+                // Create a custom exception with status code
+                val exception = Exception(errorBody).apply {
+                    // Store status code in message for easier detection
+                }
+                Result.failure(GoogleSignInException(statusCode, errorBody))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Google Sign-In exception: ${e.message}", e)
             Result.failure(e)
         }
     }
+    
+    // Custom exception for Google Sign-In errors
+    class GoogleSignInException(val statusCode: Int, message: String) : Exception(message)
 
 
     suspend fun getProfile(): Result<ProfileResponse> {
@@ -227,8 +254,30 @@ class AuthRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
+                val statusCode = response.code()
                 val errorMessage = response.errorBody()?.string() ?: "Failed to get profile"
-                Log.e(TAG, "Get profile error: $errorMessage")
+                Log.e(TAG, "Get profile error ($statusCode): $errorMessage")
+                
+                // If 404 and we have basic user info from token, create a minimal profile
+                if (statusCode == 404) {
+                    Log.d(TAG, "Profile not found (404), creating minimal profile from stored data")
+                    val userId = tokenManager.getUserIdSync()
+                    val userType = tokenManager.getUserTypeSync()
+                    val email = tokenManager.getUserEmailSync()
+                    // Create minimal profile from stored data
+                    val minimalProfile = ProfileResponse(
+                        _id = userId,
+                        email = email,
+                        firstName = null,
+                        lastName = null,
+                        phoneNumber = null,
+                        university = null,
+                        userType = userType ?: "companion"
+                    )
+                    // Return success with minimal profile instead of failure
+                    return Result.success(minimalProfile)
+                }
+                
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
