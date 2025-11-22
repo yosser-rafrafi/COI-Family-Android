@@ -1,7 +1,6 @@
 package tn.esprit.coidam.screens
 
-import android.R.attr.onClick
-import androidx.compose.foundation.Image
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,36 +9,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
-import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
-import android.content.Context
-import androidx.activity.compose.LocalActivity
-import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.ui.theme.ThemedBackground
-import androidx.activity.compose.BackHandler
-
 
 @Composable
-fun SignupScreen(navController: NavController) {
-    // Disable back navigation
+fun SignupScreen(
+    navController: NavController,
+    isGoogleLoading: Boolean = false // ✅ PARAMÈTRE AJOUTÉ
+) {
     BackHandler(enabled = true) {
-        // Do nothing - prevent back navigation
+        // Ne rien faire - empêche le retour
     }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -59,7 +51,6 @@ fun SignupScreen(navController: NavController) {
 
     fun signUp() {
         scope.launch {
-            // Validate all fields
             when {
                 email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() -> {
                     dialogMessage = "Please fill in all fields."
@@ -87,22 +78,20 @@ fun SignupScreen(navController: NavController) {
                     isLoading = false
 
                     result.onSuccess {
-                        // After successful signup, automatically sign in
                         scope.launch {
                             val signInResult = authRepository.signIn(email.trim(), password)
                             signInResult.onSuccess { authResponse ->
                                 if (authResponse.access_token != null) {
-                                    // Navigate directly to dashboard
-                                    navController.navigate("dashboard") {
+                                    navController.navigate("blind_dashboard") {
                                         popUpTo("register") { inclusive = true }
                                     }
                                 } else {
-                                    dialogMessage = it.message ?: "Registration successful! Please login."
+                                    dialogMessage = "Registration successful! Please login."
                                     isSuccess = true
                                     showDialog = true
                                 }
-                            }.onFailure { exception ->
-                                dialogMessage = it.message ?: "Registration successful! Please login."
+                            }.onFailure {
+                                dialogMessage = "Registration successful! Please login."
                                 isSuccess = true
                                 showDialog = true
                             }
@@ -117,44 +106,42 @@ fun SignupScreen(navController: NavController) {
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Background Image
+    Box(modifier = Modifier.fillMaxSize()) {
         ThemedBackground()
 
-        // Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.SpaceEvenly,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(55.dp))
 
-                // Title
-                Text(
-                    text = "HELLO THERE",
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "Register below with your details!",
-                    fontSize = 20.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "HELLO THERE",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Register below with your details!",
+                        fontSize = 20.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Form Container
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -167,7 +154,6 @@ fun SignupScreen(navController: NavController) {
                 ) {
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Email Field
                     CustomTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -176,7 +162,6 @@ fun SignupScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Password Field
                     CustomTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -186,7 +171,6 @@ fun SignupScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Confirm Password Field
                     CustomTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
@@ -196,10 +180,9 @@ fun SignupScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Sign Up Button
                     Button(
                         onClick = { signUp() },
-                        enabled = !isLoading,
+                        enabled = !isLoading && !isGoogleLoading, // ✅ DÉSACTIVER SI GOOGLE LOADING
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF70CEE3)
                         ),
@@ -224,7 +207,6 @@ fun SignupScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(15.dp))
 
-                    // Already a member
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
@@ -245,19 +227,48 @@ fun SignupScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(15.dp))
 
+                    // ✅ GOOGLE SIGN-IN BUTTON AVEC LOADING
+                    GoogleSignInButton(
+                        isLoading = isGoogleLoading,
+                        enabled = !isLoading && !isGoogleLoading
+                    )
 
-                    GoogleSignInButton()
-
-
-
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
+
+        // ✅ OVERLAY DE LOADING GOOGLE SIGN-IN
+        if (isGoogleLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF70CEE3))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Connexion avec Google...",
+                            fontSize = 16.sp,
+                            color = Color(0xFF424242)
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    // Alert Dialog
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -306,14 +317,5 @@ fun CustomTextField(
             color = Color.Gray,
             thickness = 1.dp
         )
-    }
-
-}
-
-@Preview
-@Composable
-fun SignupScreenPreview(){
-    MaterialTheme {
-        SignupScreen(navController = NavController(LocalContext.current))
     }
 }

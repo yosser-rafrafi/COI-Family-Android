@@ -40,7 +40,6 @@ data class UserProfile(
     val firstName: String = "",
     val lastName: String = "",
     val phoneNumber: String = "",
-    val university: String = "",
     val userType: String = "companion"
 )
 
@@ -69,7 +68,6 @@ fun ProfilScreen(navController: NavController) {
                     firstName = profile.firstName ?: "",
                     lastName = profile.lastName ?: "",
                     phoneNumber = profile.phoneNumber ?: "",
-                    university = profile.university ?: "",
                     userType = profile.userType ?: "companion"
                 )
             }.onFailure { exception ->
@@ -224,15 +222,7 @@ fun ProfilScreen(navController: NavController) {
                                 value = userProfile?.phoneNumber ?: ""
                             )
 
-                            if (!userProfile?.university.isNullOrEmpty()) {
-                                Spacer(modifier = Modifier.height(16.dp))
 
-                                ProfileInfoItem(
-                                    icon = Icons.Default.School,
-                                    label = "University",
-                                    value = userProfile?.university ?: ""
-                                )
-                            }
                         }
                     }
 

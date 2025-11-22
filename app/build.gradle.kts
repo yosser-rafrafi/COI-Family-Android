@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.tv.material)
     implementation(libs.ui)
+    implementation(libs.play.services.location)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -93,4 +94,11 @@ dependencies {
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // maps
+    implementation("com.google.maps.android:maps-compose:2.11.4")
+    implementation("com.google.android.gms:play-services-maps:18.1.0")
+
+    // ✅ GOOGLE PLAY SERVICES - LOCATION
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 }

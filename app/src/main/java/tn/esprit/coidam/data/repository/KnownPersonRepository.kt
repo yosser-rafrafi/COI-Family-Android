@@ -12,6 +12,8 @@ import okhttp3.RequestBody
 import tn.esprit.coidam.data.api.ApiClient
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.models.*
+import tn.esprit.coidam.data.models.KnownPersonDto.CreateKnownPersonDto
+import tn.esprit.coidam.data.models.KnownPersonDto.UpdateKnownPersonDto
 import java.io.File
 import java.io.FileOutputStream
 

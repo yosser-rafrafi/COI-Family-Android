@@ -26,6 +26,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import tn.esprit.coidam.data.api.ApiClient
 import tn.esprit.coidam.data.models.KnownPerson
 import tn.esprit.coidam.data.repository.KnownPersonRepository
 
@@ -199,7 +200,7 @@ fun KnownPersonDetailScreen(navController: NavController, personId: String) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(120.dp)
+                            .size(220.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF70CEE3).copy(alpha = 0.2f))
                             .then(
@@ -211,7 +212,7 @@ fun KnownPersonDetailScreen(navController: NavController, personId: String) {
                         val imageToShow = if (isEditing && imageUri != null) {
                             imageUri
                         } else {
-                            person?.image?.let { Uri.parse(it) }
+                            person?.image?.let { Uri.parse(ApiClient.BASE_URL+it) }
                         }
 
                         if (imageToShow != null) {

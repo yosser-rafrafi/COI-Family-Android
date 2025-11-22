@@ -1,37 +1,35 @@
 package tn.esprit.coidam.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import tn.esprit.coidam.data.local.TokenManager
 
-data class MenuItem(
-    val title: String,
-    val icon: ImageVector,
-    val iconColor: Color,
-    val route: String
-)
+
 
 @Composable
-fun DashboardScreen(navController: NavController) {
+fun BlindDashboardScreen(navController: NavController) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val tokenManager = remember { TokenManager(context) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,28 +62,46 @@ fun DashboardScreen(navController: NavController) {
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
-                        Text(
-                            text = "Welcome, Companion",
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                     }
-                    
-                    // Notification bell with badge
-                    Box {
-                        IconButton(onClick = { /* Navigate to notifications */ }) {
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Notification icon + badge
+                        Box {
+                            IconButton(onClick = { /* Navigate to notifications */ }) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notifications",
+                                    tint = Color.White
+                                )
+                            }
+                            Badge(
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Text("3", color = Color.White, fontSize = 10.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Profile icon
+                        IconButton(onClick = { navController.navigate("profil") }) {
                             Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications",
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile",
                                 tint = Color.White
                             )
                         }
-                        Badge(
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Text("3", color = Color.White, fontSize = 10.sp)
-                        }
+
+                        /* // ✅ LOGOUT ICON
+                         IconButton(onClick = { showLogoutDialog = true }) {
+                             Icon(
+                                 imageVector = Icons.Default.Logout,
+                                 contentDescription = "Logout",
+                                 tint = Color.White
+                             )
+                         }*/
                     }
                 }
             }
@@ -126,14 +142,9 @@ fun DashboardScreen(navController: NavController) {
             )
 
             val menuItems = listOf(
-                MenuItem("Known People", Icons.Default.People, Color(0xFF70CEE3), "known_persons"),
-                MenuItem("Alerts", Icons.Default.Notifications, Color(0xFFFFC107), "alerts"),
-                MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),
-                MenuItem("History", Icons.Default.History, Color(0xFF4CAF50), "history"),
-                MenuItem("Location", Icons.Default.LocationOn, Color(0xFFF44336), "location"),
-                MenuItem("Guided Navigation", Icons.Default.Navigation, Color(0xFF2196F3), "guided_navigation"),
-                MenuItem("Settings", Icons.Default.Settings, Color(0xFF757575), "settings"),
-                MenuItem("Help", Icons.Default.Help, Color(0xFF9C27B0), "help")
+
+                MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
+
             )
 
             LazyVerticalGrid(
@@ -151,68 +162,6 @@ fun DashboardScreen(navController: NavController) {
             }
         }
     }
-}
 
-@Composable
-fun StatItem(number: String, label: String, color: Color) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = number,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = Color(0xFF757575)
-        )
-    }
-}
 
-@Composable
-fun MenuCard(item: MenuItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(item.iconColor.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = item.title,
-                    tint = item.iconColor,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = item.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF424242),
-                maxLines = 2
-            )
-        }
-    }
 }
-

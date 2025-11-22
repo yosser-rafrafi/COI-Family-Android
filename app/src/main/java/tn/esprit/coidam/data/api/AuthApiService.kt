@@ -3,6 +3,13 @@ package tn.esprit.coidam.data.api
 import retrofit2.Response
 import retrofit2.http.*
 import tn.esprit.coidam.data.models.*
+import tn.esprit.coidam.data.models.AuthDto.ForgotPasswordDto
+import tn.esprit.coidam.data.models.AuthDto.LoginAsDto
+import tn.esprit.coidam.data.models.AuthDto.ResetPasswordDto
+import tn.esprit.coidam.data.models.AuthDto.SignInDto
+import tn.esprit.coidam.data.models.AuthDto.SignUpDto
+import tn.esprit.coidam.data.models.AuthDto.UpdatePasswordDto
+import tn.esprit.coidam.data.models.AuthDto.UpdateProfileDto
 
 interface AuthApiService {
     @POST("auth/signup")
@@ -36,12 +43,12 @@ interface AuthApiService {
     ): Response<Map<String, Any>>
 
     @GET("auth/me")
-    suspend fun getProfile(@Header("Authorization") token: String): Response<ProfileResponse>
+    suspend fun getProfile(@Header("Authorization") token: String): Response<UserResponse>
 
     @PUT("auth/profile")
     suspend fun updateProfile(
         @Header("Authorization") token: String,
         @Body dto: UpdateProfileDto
-    ): Response<ProfileResponse>
+    ): Response<UserResponse>
 }
 

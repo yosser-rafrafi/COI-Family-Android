@@ -1,48 +1,46 @@
 package tn.esprit.coidam.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
 import tn.esprit.coidam.ui.theme.ThemedBackground
-import androidx.activity.compose.LocalActivity
-import tn.esprit.coidam.MainActivity
-import androidx.activity.compose.BackHandler
 
 @Composable
-fun LoginScreen(navController: NavController) {
-    // Disable back navigation
+fun LoginScreen(
+    navController: NavController,
+    isGoogleLoading: Boolean = false // ✅ PARAMÈTRE AJOUTÉ
+) {
     BackHandler(enabled = true) {
-        // Do nothing - prevent back navigation
+        // Ne rien faire - empêche le retour
     }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
-    
+
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
     val scope = rememberCoroutineScope()
@@ -60,45 +58,45 @@ fun LoginScreen(navController: NavController) {
             isLoading = false
 
             result.onSuccess { authResponse ->
-                // Automatically login as companion profile
                 if (authResponse.options != null && authResponse.options.isNotEmpty()) {
-                    // Find companion option or use first one
-                    val companionOption = authResponse.options.find { it.userType == "companion" } 
-                        ?: authResponse.options.first()
-                    val loginResult = authRepository.loginAs(companionOption.userId, companionOption.userType)
+
+                    val option = authResponse.options.firstOrNull()
+
+                    if (option == null) {
+                        dialogMessage = "Login failed: no valid option received"
+                        showDialog = true
+                        return@launch
+                    }
+
+                    val loginResult = authRepository.loginAs(option.userId, option.userType)
+
                     loginResult.onSuccess {
-                        navController.navigate("dashboard") {
-                            popUpTo("login") { inclusive = true }
+                        if (option.userType == "companion") {
+                            navController.navigate("companion_dashboard") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else if (option.userType == "blind") {
+                            navController.navigate("blind_dashboard") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else {
+                            dialogMessage = "Unknown user type: ${option.userType}"
+                            showDialog = true
                         }
                     }.onFailure { exception ->
                         dialogMessage = exception.message ?: "Failed to login"
                         showDialog = true
                     }
-                } else if (authResponse.access_token != null) {
-                    // Login successful, navigate to dashboard
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                } else {
-                    dialogMessage = authResponse.error ?: "Login failed"
-                    showDialog = true
+
                 }
-            }.onFailure { exception ->
-                dialogMessage = exception.message ?: "Login failed. Please check your credentials."
-                showDialog = true
+
             }
         }
     }
 
-
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Background Image
+    Box(modifier = Modifier.fillMaxSize()) {
         ThemedBackground()
 
-        // Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -107,9 +105,7 @@ fun LoginScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Title
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "HELLO AGAIN",
                     fontSize = 36.sp,
@@ -164,10 +160,7 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    HorizontalDivider(
-                        color = Color.Gray,
-                        thickness = 1.dp
-                    )
+                    HorizontalDivider(color = Color.Gray, thickness = 1.dp)
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -203,10 +196,7 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    HorizontalDivider(
-                        color = Color.Gray,
-                        thickness = 1.dp
-                    )
+                    HorizontalDivider(color = Color.Gray, thickness = 1.dp)
                 }
 
                 Spacer(modifier = Modifier.height(25.dp))
@@ -214,13 +204,12 @@ fun LoginScreen(navController: NavController) {
                 // Sign In Button
                 Button(
                     onClick = { signIn() },
-                    enabled = !isLoading,
+                    enabled = !isLoading && !isGoogleLoading, // ✅ DÉSACTIVER SI GOOGLE LOADING
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF70CEE3)
                     ),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -275,10 +264,41 @@ fun LoginScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(15.dp))
 
-                // Google Sign-In Button
-                GoogleSignInButton()
+                // ✅ GOOGLE SIGN-IN BUTTON AVEC LOADING
+                GoogleSignInButton(
+                    isLoading = isGoogleLoading,
+                    enabled = !isLoading && !isGoogleLoading
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
+            }
+        }
+
+        // ✅ OVERLAY DE LOADING GOOGLE SIGN-IN
+        if (isGoogleLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF70CEE3))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Connexion avec Google...",
+                            fontSize = 16.sp,
+                            color = Color(0xFF424242)
+                        )
+                    }
+                }
             }
         }
     }
@@ -299,31 +319,42 @@ fun LoginScreen(navController: NavController) {
 }
 
 @Composable
-fun GoogleSignInButton() {
+fun GoogleSignInButton(
+    isLoading: Boolean = false,
+    enabled: Boolean = true
+) {
     val activity = LocalActivity.current as? MainActivity
 
     Button(
         onClick = {
-            activity?.signInWithGoogle()
+            if (!isLoading) {
+                activity?.signInWithGoogle()
+            }
         },
-        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            disabledContainerColor = Color.White.copy(alpha = 0.6f)
+        ),
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.mail),
-            contentDescription = "Google Logo",
-            modifier = Modifier.size(24.dp)
-        )
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = Color(0xFF70CEE3),
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Image(
+                painter = painterResource(id = R.drawable.mail),
+                contentDescription = "Google Logo",
+                modifier = Modifier.size(24.dp)
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Sign in with Google", color = Color.Black)
-    }
-}
-
-@Preview
-@Composable
-fun LoginScreenPreview() {
-    MaterialTheme {
-        LoginScreen(navController = NavController(LocalContext.current))
+        Text(
+            text = if (isLoading) "Connexion..." else "Sign in with Google",
+            color = if (enabled) Color.Black else Color.Black.copy(alpha = 0.4f)
+        )
     }
 }

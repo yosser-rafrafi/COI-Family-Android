@@ -125,7 +125,7 @@ fun KnownPersonCreateScreen(navController: NavController) {
             ) {
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(220.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF70CEE3).copy(alpha = 0.2f))
                         .clickable { imagePickerLauncher.launch("image/*") },

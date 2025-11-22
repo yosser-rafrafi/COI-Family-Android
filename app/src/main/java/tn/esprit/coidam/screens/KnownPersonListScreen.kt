@@ -1,7 +1,9 @@
 package tn.esprit.coidam.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,7 +18,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +34,6 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.data.models.KnownPerson
 import tn.esprit.coidam.data.repository.KnownPersonRepository
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KnownPersonListScreen(navController: NavController) {
@@ -48,12 +52,11 @@ fun KnownPersonListScreen(navController: NavController) {
             val result = repository.findAll()
             isLoading = false
 
-            result.onSuccess { persons ->
-                knownPersons = persons
-            }.onFailure { exception ->
-                dialogMessage = exception.message ?: "Failed to load known persons"
-                showDialog = true
-            }
+            result.onSuccess { persons -> knownPersons = persons }
+                .onFailure { exception ->
+                    dialogMessage = exception.message ?: "Failed to load known persons"
+                    showDialog = true
+                }
         }
     }
 
@@ -63,12 +66,11 @@ fun KnownPersonListScreen(navController: NavController) {
             val result = repository.findAll()
             isLoading = false
 
-            result.onSuccess { persons ->
-                knownPersons = persons
-            }.onFailure { exception ->
-                dialogMessage = exception.message ?: "Failed to load known persons"
-                showDialog = true
-            }
+            result.onSuccess { persons -> knownPersons = persons }
+                .onFailure { exception ->
+                    dialogMessage = exception.message ?: "Failed to load known persons"
+                    showDialog = true
+                }
         }
     }
 
@@ -91,17 +93,6 @@ fun KnownPersonListScreen(navController: NavController) {
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = { navController.navigate("known_person_create") }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add",
-                            tint = Color.White
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF70CEE3)
                 )
@@ -110,7 +101,8 @@ fun KnownPersonListScreen(navController: NavController) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate("known_person_create") },
-                containerColor = Color(0xFF70CEE3)
+                containerColor = Color(0xFF70CEE3),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -132,23 +124,27 @@ fun KnownPersonListScreen(navController: NavController) {
                     color = Color(0xFF70CEE3)
                 )
             } else if (knownPersons.isEmpty()) {
+                // Empty State amélioré avec fade-in
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
+                        .padding(32.dp)
+                        .alpha(0.8f)
+                        .animateContentSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Empty",
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(80.dp),
                         tint = Color.Gray
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No known people",
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.Gray
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -159,17 +155,16 @@ fun KnownPersonListScreen(navController: NavController) {
                     )
                 }
             } else {
+                // Liste avec cards modernes
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(knownPersons) { person ->
-                        KnownPersonCard(
+                        KnownPersonCardModern(
                             person = person,
-                            onClick = {
-                                navController.navigate("known_person_detail/${person.resolvedId()}")
-                            }
+                            onClick = { navController.navigate("known_person_detail/${person.resolvedId()}") }
                         )
                     }
                 }
@@ -184,23 +179,22 @@ fun KnownPersonListScreen(navController: NavController) {
             title = { Text("Error") },
             text = { Text(dialogMessage) },
             confirmButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text("OK")
-                }
+                TextButton(onClick = { showDialog = false }) { Text("OK") }
             }
         )
     }
 }
 
 @Composable
-fun KnownPersonCard(person: KnownPerson, onClick: () -> Unit) {
+fun KnownPersonCardModern(person: KnownPerson, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+            .clickable { onClick() }
+            .shadow(6.dp, RoundedCornerShape(16.dp)), // Ombre moderne
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Row(
             modifier = Modifier
@@ -208,19 +202,23 @@ fun KnownPersonCard(person: KnownPerson, onClick: () -> Unit) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Profile Image
+            // Profile Image avec bordure et ombre
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(74.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF70CEE3).copy(alpha = 0.2f)),
+                    .background(Color.White)
+                    .border(2.dp, Color(0xFF70CEE3), CircleShape)
+                    .shadow(4.dp, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (person.image != null && person.image.isNotEmpty()) {
+                if (!person.image.isNullOrEmpty()) {
                     Image(
                         painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(LocalContext.current)
                                 .data(person.image)
+                                .placeholder(android.R.drawable.progress_indeterminate_horizontal)
+                                .error(android.R.drawable.stat_notify_error)
                                 .build()
                         ),
                         contentDescription = person.name,
@@ -241,7 +239,6 @@ fun KnownPersonCard(person: KnownPerson, onClick: () -> Unit) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Person Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = person.name,
@@ -269,4 +266,3 @@ fun KnownPersonCard(person: KnownPerson, onClick: () -> Unit) {
         }
     }
 }
-

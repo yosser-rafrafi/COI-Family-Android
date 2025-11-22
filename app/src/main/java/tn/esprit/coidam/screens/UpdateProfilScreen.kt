@@ -36,7 +36,6 @@ fun UpdateProfilScreen(navController: NavController) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
-    var university by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var userType by remember { mutableStateOf("companion") }
     var isLoading by remember { mutableStateOf(true) }
@@ -61,7 +60,6 @@ fun UpdateProfilScreen(navController: NavController) {
                 firstName = profile.firstName ?: ""
                 lastName = profile.lastName ?: ""
                 phoneNumber = profile.phoneNumber ?: ""
-                university = profile.university ?: ""
                 userType = profile.userType ?: "companion"
             }.onFailure { exception ->
                 dialogMessage = "Failed to load profile: ${exception.message}"
@@ -72,7 +70,7 @@ fun UpdateProfilScreen(navController: NavController) {
     }
 
     fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        val phoneRegex = Regex("^[0-9]{10}\$")
+        val phoneRegex = Regex("^[0-9]{8}\$")
         return phoneRegex.matches(phoneNumber)
     }
 
@@ -85,7 +83,7 @@ fun UpdateProfilScreen(navController: NavController) {
                     showDialog = true
                 }
                 !isValidPhoneNumber(phoneNumber.trim()) -> {
-                    dialogMessage = "Please enter a valid phone number (10 digits)."
+                    dialogMessage = "Please enter a valid phone number (8 digits)."
                     isSuccess = false
                     showDialog = true
                 }
@@ -95,7 +93,6 @@ fun UpdateProfilScreen(navController: NavController) {
                         firstName = firstName.trim(),
                         lastName = lastName.trim(),
                         email = email.trim(),
-                        university = university.trim(),
                         phoneNumber = phoneNumber.trim()
                     )
                     isSaving = false
@@ -286,27 +283,7 @@ fun UpdateProfilScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // University
-                            OutlinedTextField(
-                                value = university,
-                                onValueChange = { university = it },
-                                label = { Text("University (Optional)") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.School,
-                                        contentDescription = "University"
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF70CEE3),
-                                    focusedLabelColor = Color(0xFF70CEE3),
-                                    focusedLeadingIconColor = Color(0xFF70CEE3)
-                                )
-                            )
 
-                            Spacer(modifier = Modifier.height(16.dp))
 
                             // Email
                             OutlinedTextField(

@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
     // TODO: Change this to your backend URL
    //
-    private const val BASE_URL = "http://192.168.0.148:3000/"
+    const val BASE_URL = "http://172.20.10.10:3000/"
     // private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
     // For physical device, use your computer's IP: "http://192.168.x.x:3000/"
 
@@ -35,5 +35,7 @@ object ApiClient {
 
     val authApiService: AuthApiService = retrofit.create(AuthApiService::class.java)
     val knownPersonApiService: KnownPersonApiService = retrofit.create(KnownPersonApiService::class.java)
+
+    val alertApiService: AlertApiService = retrofit.create(AlertApiService::class.java)
 }
 

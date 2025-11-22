@@ -5,8 +5,8 @@ import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 import tn.esprit.coidam.data.models.KnownPerson
-import tn.esprit.coidam.data.models.CreateKnownPersonDto
-import tn.esprit.coidam.data.models.UpdateKnownPersonDto
+import tn.esprit.coidam.data.models.KnownPersonDto.CreateKnownPersonDto
+import tn.esprit.coidam.data.models.KnownPersonDto.UpdateKnownPersonDto
 
 interface KnownPersonApiService {
     @POST("known-person")

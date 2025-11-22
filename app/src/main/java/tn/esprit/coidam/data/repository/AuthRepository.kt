@@ -5,6 +5,13 @@ import android.util.Log
 import tn.esprit.coidam.data.api.ApiClient
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.models.*
+import tn.esprit.coidam.data.models.AuthDto.ForgotPasswordDto
+import tn.esprit.coidam.data.models.AuthDto.LoginAsDto
+import tn.esprit.coidam.data.models.AuthDto.ResetPasswordDto
+import tn.esprit.coidam.data.models.AuthDto.SignInDto
+import tn.esprit.coidam.data.models.AuthDto.SignUpDto
+import tn.esprit.coidam.data.models.AuthDto.UpdatePasswordDto
+import tn.esprit.coidam.data.models.AuthDto.UpdateProfileDto
 
 class AuthRepository(private val context: Context) {
     private val apiService = ApiClient.authApiService
@@ -79,7 +86,7 @@ class AuthRepository(private val context: Context) {
         }
     }
 
-    suspend fun loginAs(userId: String, userType: String): Result<AuthResponse> {
+    suspend fun loginAs(userId: String?, userType: String?): Result<AuthResponse> {
         return try {
             val dto = LoginAsDto(userId, userType)
             val response = apiService.loginAs(dto)
@@ -115,6 +122,35 @@ class AuthRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Login as exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+
+    // ✅ NOUVELLE FONCTION POUR RÉCUPÉRER LE PROFIL AVEC linkedUserId
+    suspend fun getProfileWithLinkedUser(): Result<UserResponse> {
+        return try {
+            val token = tokenManager.getTokenSync()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("No token found"))
+            }
+
+            val response = apiService.getProfile("Bearer $token")
+
+            if (response.isSuccessful && response.body() != null) {
+                val profile = response.body()!!
+
+                // ✅ SAUVEGARDER linkedUserId
+                // Note: Vous devez ajouter linkedUserId dans UserResponse
+                // profile.linkedUserId?.let { linkedId ->
+                //     tokenManager.saveLinkedUserId(linkedId)
+                // }
+
+                Result.success(profile)
+            } else {
+                Result.failure(Exception("Failed to get profile"))
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -242,7 +278,7 @@ class AuthRepository(private val context: Context) {
     class GoogleSignInException(val statusCode: Int, message: String) : Exception(message)
 
 
-    suspend fun getProfile(): Result<ProfileResponse> {
+    suspend fun getProfile(): Result<UserResponse> {
         return try {
             val token = tokenManager.getTokenSync()
             if (token == null) {
@@ -265,13 +301,12 @@ class AuthRepository(private val context: Context) {
                     val userType = tokenManager.getUserTypeSync()
                     val email = tokenManager.getUserEmailSync()
                     // Create minimal profile from stored data
-                    val minimalProfile = ProfileResponse(
+                    val minimalProfile = UserResponse(
                         _id = userId,
                         email = email,
                         firstName = null,
                         lastName = null,
                         phoneNumber = null,
-                        university = null,
                         userType = userType ?: "companion"
                     )
                     // Return success with minimal profile instead of failure
@@ -290,16 +325,15 @@ class AuthRepository(private val context: Context) {
         firstName: String,
         lastName: String,
         email: String,
-        university: String,
         phoneNumber: String
-    ): Result<ProfileResponse> {
+    ): Result<UserResponse> {
         return try {
             val token = tokenManager.getTokenSync()
             if (token == null) {
                 return Result.failure(Exception("No authentication token found"))
             }
             
-            val dto = UpdateProfileDto(firstName, lastName, email, university, phoneNumber)
+            val dto = UpdateProfileDto(firstName, lastName, email, phoneNumber)
             val response = apiService.updateProfile("Bearer $token", dto)
             
             if (response.isSuccessful && response.body() != null) {
