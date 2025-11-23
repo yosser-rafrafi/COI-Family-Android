@@ -101,4 +101,11 @@ dependencies {
 
     // ✅ GOOGLE PLAY SERVICES - LOCATION
     implementation("com.google.android.gms:play-services-location:21.0.1")
+
+     // optionnel, pour cartes hors ligne
+    implementation("org.osmdroid:osmdroid-android:6.1.14")
+    implementation("org.osmdroid:osmdroid-mapsforge:6.1.14")
+
+
+
 }

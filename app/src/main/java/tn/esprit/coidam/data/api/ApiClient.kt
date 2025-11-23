@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
     // TODO: Change this to your backend URL
    //
-    const val BASE_URL = "http://172.20.10.10:3000/"
+    const val BASE_URL = "http://192.168.0.148:3001/"
     // private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
     // For physical device, use your computer's IP: "http://192.168.x.x:3000/"
 

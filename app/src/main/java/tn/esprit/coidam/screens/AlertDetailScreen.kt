@@ -69,7 +69,7 @@ fun AlertDetailScreen(navController: NavController, alertId: String) {
                 HeaderBar(
                     title = "Détails",
                     onBackClick = { navController.popBackStack() },
-                    onRefreshClick = TODO()
+                    onRefreshClick = {}
                 )
 
                 Column(modifier = Modifier.padding(20.dp)) {
@@ -122,17 +122,15 @@ fun AlertDetailScreen(navController: NavController, alertId: String) {
                                 this.position = CameraPosition.fromLatLngZoom(position, 15f)
                             }
 
-                            GoogleMap(
+                            OSMMap(
+                                context = LocalContext.current,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(200.dp),
-                                cameraPositionState = cameraPositionState
-                            ) {
-                                Marker(
-                                    state = MarkerState(position = position),
-                                    title = "Alerte"
-                                )
-                            }
+                                    .height(200.dp)
+                            )
+
 
                             Spacer(modifier = Modifier.height(12.dp))
 

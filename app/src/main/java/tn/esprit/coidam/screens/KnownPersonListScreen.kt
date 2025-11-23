@@ -32,6 +32,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import tn.esprit.coidam.data.api.ApiClient
 import tn.esprit.coidam.data.models.KnownPerson
 import tn.esprit.coidam.data.repository.KnownPersonRepository
 @OptIn(ExperimentalMaterial3Api::class)
@@ -216,7 +217,7 @@ fun KnownPersonCardModern(person: KnownPerson, onClick: () -> Unit) {
                     Image(
                         painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(LocalContext.current)
-                                .data(person.image)
+                                .data(ApiClient.BASE_URL+person.image)
                                 .placeholder(android.R.drawable.progress_indeterminate_horizontal)
                                 .error(android.R.drawable.stat_notify_error)
                                 .build()

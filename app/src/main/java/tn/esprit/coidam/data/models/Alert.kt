@@ -8,8 +8,8 @@ import tn.esprit.coidam.data.models.Enums.AlertType
 data class Alert(
     @SerializedName("_id")
     val id: String,
-    val blindUserId: String,
-    val companionId: String,
+    val blindUser: AlertUserInfo,
+    val companionUser: AlertUserInfo?,
     val type: AlertType,
     val status: AlertStatus,
     val location: Location? = null,
@@ -19,8 +19,8 @@ data class Alert(
     val resolvedAt: String? = null,
 
     // Ces champs peuvent être des objets si le backend fait populate()
-    val blindUser: AlertUserInfo? = null,
-    val companionUser: AlertUserInfo? = null
+    //val blindUser: AlertUserInfo? = null,
+   // val companionUser: AlertUserInfo? = null
 ) {
     // Helper pour le temps écoulé
     fun timeAgo(): String {
