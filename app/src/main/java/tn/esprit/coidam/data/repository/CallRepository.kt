@@ -9,6 +9,7 @@ import tn.esprit.coidam.data.models.CallDto.AcceptCallDto
 import tn.esprit.coidam.data.models.CallDto.EndCallDto
 import tn.esprit.coidam.data.models.CallDto.RejectCallDto
 import tn.esprit.coidam.data.models.CallDto.StartCallDto
+import tn.esprit.coidam.data.models.CallResponses.AcceptCallResponse
 import tn.esprit.coidam.data.models.CallResponses.AgoraCredentials
 import tn.esprit.coidam.data.models.CallResponses.CallHistoryResponse
 import tn.esprit.coidam.data.models.CallResponses.CallStatsResponse
@@ -56,13 +57,13 @@ class CallRepository(private val context: Context) {
     /**
      * Accepte un appel
      */
-    suspend fun acceptCall(callId: String): Result<Call> {
+    suspend fun acceptCall(callId: String): Result<AcceptCallResponse> {
         return try {
             val dto = AcceptCallDto(callId)
             val response = apiService.acceptCall(dto)
 
             if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "✅ Call accepted")
+                Log.d(TAG, "✅ Call accepted with Agora credentials")
                 Result.success(response.body()!!)
             } else {
                 val errorMessage = response.errorBody()?.string() ?: "Failed to accept call"

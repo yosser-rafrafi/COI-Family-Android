@@ -7,6 +7,7 @@ import tn.esprit.coidam.data.models.CallDto.AcceptCallDto
 import tn.esprit.coidam.data.models.CallDto.EndCallDto
 import tn.esprit.coidam.data.models.CallDto.RejectCallDto
 import tn.esprit.coidam.data.models.CallDto.StartCallDto
+import tn.esprit.coidam.data.models.CallResponses.AcceptCallResponse
 import tn.esprit.coidam.data.models.CallResponses.AgoraCredentials
 import tn.esprit.coidam.data.models.CallResponses.CallHistoryResponse
 import tn.esprit.coidam.data.models.CallResponses.CallStatsResponse
@@ -18,7 +19,7 @@ interface CallApiService {
     suspend fun startCall(@Body dto: StartCallDto): Response<StartCallResponse>
 
     @POST("video-call/accept")
-    suspend fun acceptCall(@Body dto: AcceptCallDto): Response<Call>
+    suspend fun acceptCall(@Body dto: AcceptCallDto): Response<AcceptCallResponse>
 
     @POST("video-call/reject")
     suspend fun rejectCall(@Body dto: RejectCallDto): Response<Call>

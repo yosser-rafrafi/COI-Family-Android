@@ -71,6 +71,10 @@ class AuthRepository(private val context: Context) {
                     authResponse.user?.email?.let { email ->
                         tokenManager.saveUserEmail(email)
                     }
+                    authResponse.user?.linkedUserId?.let { linkedId ->
+                        tokenManager.saveLinkedUserId(linkedId)
+                        Log.d(TAG, "✅ Saved linkedUserId: $linkedId")
+                    }
                 }
                 
                 Result.success(authResponse)
@@ -111,6 +115,10 @@ class AuthRepository(private val context: Context) {
                     authResponse.user?.email?.let { email ->
                         tokenManager.saveUserEmail(email)
                     }
+                    authResponse.user?.linkedUserId?.let { linkedId ->
+                        tokenManager.saveLinkedUserId(linkedId)
+                        Log.d(TAG, "✅ Saved linkedUserId after loginAs: $linkedId")
+                    }
                 }
                 
                 Result.success(authResponse)
@@ -140,11 +148,7 @@ class AuthRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 val profile = response.body()!!
 
-                // ✅ SAUVEGARDER linkedUserId
-                // Note: Vous devez ajouter linkedUserId dans UserResponse
-                // profile.linkedUserId?.let { linkedId ->
-                //     tokenManager.saveLinkedUserId(linkedId)
-                // }
+
 
                 Result.success(profile)
             } else {
@@ -243,7 +247,6 @@ class AuthRepository(private val context: Context) {
             val response = apiService.signInWithGoogle(dto)
             if (response.isSuccessful && response.body() != null) {
                 val authResponse = response.body()!!
-                // Save token and user info
                 authResponse.access_token?.let { token ->
                     tokenManager.saveToken(token)
                     authResponse.user?.getUserId()?.let { userId ->
@@ -255,17 +258,17 @@ class AuthRepository(private val context: Context) {
                     authResponse.user?.email?.let { email ->
                         tokenManager.saveUserEmail(email)
                     }
+                    // ✅ SAUVEGARDER linkedUserId
+                    authResponse.user?.linkedUserId?.let { linkedId ->
+                        tokenManager.saveLinkedUserId(linkedId)
+                        Log.d(TAG, "✅ Saved linkedUserId from Google: $linkedId")
+                    }
                 }
                 Result.success(authResponse)
             } else {
                 val errorBody = response.errorBody()?.string() ?: "Google Sign-In failed"
                 val statusCode = response.code()
                 Log.e(TAG, "Google Sign-In backend error ($statusCode): $errorBody")
-                
-                // Create a custom exception with status code
-                val exception = Exception(errorBody).apply {
-                    // Store status code in message for easier detection
-                }
                 Result.failure(GoogleSignInException(statusCode, errorBody))
             }
         } catch (e: Exception) {
@@ -284,35 +287,42 @@ class AuthRepository(private val context: Context) {
             if (token == null) {
                 return Result.failure(Exception("No authentication token found"))
             }
-            
+
             val response = apiService.getProfile("Bearer $token")
-            
+
             if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+                val profile = response.body()!!
+
+                // ✅ SAUVEGARDER linkedUserId du profil
+                profile.linkedUserId?.let { linkedId ->
+                    tokenManager.saveLinkedUserId(linkedId)
+                    Log.d(TAG, "✅ Saved linkedUserId from profile: $linkedId")
+                }
+
+                Result.success(profile)
             } else {
                 val statusCode = response.code()
                 val errorMessage = response.errorBody()?.string() ?: "Failed to get profile"
                 Log.e(TAG, "Get profile error ($statusCode): $errorMessage")
-                
-                // If 404 and we have basic user info from token, create a minimal profile
+
                 if (statusCode == 404) {
                     Log.d(TAG, "Profile not found (404), creating minimal profile from stored data")
                     val userId = tokenManager.getUserIdSync()
                     val userType = tokenManager.getUserTypeSync()
                     val email = tokenManager.getUserEmailSync()
-                    // Create minimal profile from stored data
+                    val linkedUserId = tokenManager.getLinkedUserIdSync() // ✅ Récupérer aussi
                     val minimalProfile = UserResponse(
                         _id = userId,
                         email = email,
                         firstName = null,
                         lastName = null,
                         phoneNumber = null,
-                        userType = userType ?: "companion"
+                        userType = userType ?: "companion",
+                        linkedUserId = linkedUserId // ✅ Inclure dans minimal profile
                     )
-                    // Return success with minimal profile instead of failure
                     return Result.success(minimalProfile)
                 }
-                
+
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {

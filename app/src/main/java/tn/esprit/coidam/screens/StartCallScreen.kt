@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.repository.CallRepository
 import tn.esprit.coidam.ui.theme.ThemedBackground
+import android.util.Log
 
 @Composable
 fun StartCallScreen(navController: NavController) {
@@ -154,29 +155,56 @@ fun StartCallScreen(navController: NavController) {
                 onClick = {
                     scope.launch {
                         isLoading = true
-                        val blindUserId = tokenManager.getUserIdSync()
-                        val companionId = tokenManager.getLinkedUserIdSync()
+                        val currentUserId = tokenManager.getUserIdSync()
+                        val currentUserType = tokenManager.getUserTypeSync()
+                        val linkedUserId = tokenManager.getLinkedUserIdSync()
+
+                        Log.d("StartCallScreen", "🔍 Current User ID: $currentUserId")
+                        Log.d("StartCallScreen", "🔍 Current User Type: $currentUserType")
+                        Log.d("StartCallScreen", "🔍 Linked User ID: $linkedUserId")
+
+                        // ✅ LOGIQUE CORRECTE SELON LE TYPE D'UTILISATEUR
+                        val blindUserId: String?
+                        val companionId: String?
+
+                        if (currentUserType == "blind") {
+                            // Si l'utilisateur est BLIND
+                            blindUserId = currentUserId  // Son propre ID
+                            companionId = linkedUserId   // Son companion lié
+                        } else {
+                            // Si l'utilisateur est COMPANION (cas rare mais possible)
+                            blindUserId = linkedUserId   // Son blind lié
+                            companionId = currentUserId  // Son propre ID
+                        }
+
+                        Log.d("StartCallScreen", "📞 Blind User ID: $blindUserId")
+                        Log.d("StartCallScreen", "📞 Companion ID: $companionId")
 
                         if (blindUserId != null && companionId != null) {
                             val result = callRepository.startCall(
                                 blindUserId = blindUserId,
                                 companionId = companionId,
                                 callType = callType,
-                                initiatedBy = "blind"
+                                initiatedBy = currentUserType ?: "blind"
                             )
 
                             result.onSuccess { response ->
+                                Log.d("StartCallScreen", "✅ Appel créé avec succès: ${response.call.id}")
                                 // Navigate to active call screen with call data
-                                navController.navigate("active_call}") {
+                                navController.navigate("active_call/${response.call.id}") {
                                     popUpTo("start_call") { inclusive = true }
                                 }
                             }.onFailure { e ->
+                                Log.e("StartCallScreen", "❌ Erreur: ${e.message}")
                                 errorMessage = e.message ?: "Erreur lors du démarrage de l'appel"
                                 showError = true
                             }
                         } else {
-                            errorMessage = "Informations utilisateur manquantes"
+                            errorMessage = "Informations utilisateur manquantes.\n" +
+                                    "Blind ID: ${if (blindUserId == null) "❌ MANQUANT" else "✅"}\n" +
+                                    "Companion ID: ${if (companionId == null) "❌ MANQUANT" else "✅"}"
                             showError = true
+                            Log.e("StartCallScreen", "❌ $errorMessage")
                         }
 
                         isLoading = false

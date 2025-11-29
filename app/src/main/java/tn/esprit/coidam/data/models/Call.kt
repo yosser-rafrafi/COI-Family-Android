@@ -6,8 +6,6 @@ import tn.esprit.coidam.data.models.Enums.CallType
 
 data class Call(
     @SerializedName("_id") val id: String,
-    val blindUserId: String,
-    val companionId: String,
     val status: CallStatus,
     val callType: CallType,
     val agoraChannelName: String?,

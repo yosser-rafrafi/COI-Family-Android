@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -327,3 +328,203 @@ fun callStatusColor(status: CallStatus): Color {
         else -> Color(0xFF757575)
     }
 }
+
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun CallHistoryScreenPreview() {
+    MaterialTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            ThemedBackground()
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Retour",
+                            tint = Color(0xFF424242)
+                        )
+                    }
+
+                    Text(
+                        text = "Historique d'appels",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF424242)
+                    )
+
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Rafraîchir",
+                            tint = Color(0xFF70CEE3)
+                        )
+                    }
+                }
+
+                // Stats Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        StatItem(
+                            number = "24",
+                            label = "Total",
+                            color = Color(0xFF70CEE3)
+                        )
+                        StatItem(
+                            number = "18",
+                            label = "Terminés",
+                            color = Color(0xFF4CAF50)
+                        )
+                        StatItem(
+                            number = "6",
+                            label = "Manqués",
+                            color = Color(0xFFF44336)
+                        )
+                    }
+                }
+
+                // Sample calls
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(3) { index ->
+                        CallHistoryCardPreviewItem(index)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CallHistoryCardPreviewItem(index: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when (index % 3) {
+                            0 -> Color(0xFF4CAF50).copy(alpha = 0.1f)
+                            1 -> Color(0xFFF44336).copy(alpha = 0.1f)
+                            else -> Color(0xFFFF9800).copy(alpha = 0.1f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when (index % 3) {
+                        0 -> Icons.Default.CheckCircle
+                        1 -> Icons.Default.PhoneMissed
+                        else -> Icons.Default.PhoneDisabled
+                    },
+                    contentDescription = null,
+                    tint = when (index % 3) {
+                        0 -> Color(0xFF4CAF50)
+                        1 -> Color(0xFFF44336)
+                        else -> Color(0xFFFF9800)
+                    },
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Jean Dupont",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF424242)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (index % 2 == 0) Icons.Default.Videocam else Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = Color(0xFF757575),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (index % 2 == 0) "Appel vidéo" else "Appel audio",
+                        fontSize = 12.sp,
+                        color = Color(0xFF757575)
+                    )
+                    Text(
+                        text = " • 05:32",
+                        fontSize = 12.sp,
+                        color = Color(0xFF757575)
+                    )
+                }
+
+                Text(
+                    text = "Il y a ${index + 1}h",
+                    fontSize = 12.sp,
+                    color = Color(0xFF757575)
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = when (index % 3) {
+                    0 -> Color(0xFF4CAF50).copy(alpha = 0.15f)
+                    1 -> Color(0xFFF44336).copy(alpha = 0.15f)
+                    else -> Color(0xFFFF9800).copy(alpha = 0.15f)
+                }
+            ) {
+                Text(
+                    text = when (index % 3) {
+                        0 -> "Terminé"
+                        1 -> "Manqué"
+                        else -> "Rejeté"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when (index % 3) {
+                        0 -> Color(0xFF4CAF50)
+                        1 -> Color(0xFFF44336)
+                        else -> Color(0xFFFF9800)
+                    },
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+

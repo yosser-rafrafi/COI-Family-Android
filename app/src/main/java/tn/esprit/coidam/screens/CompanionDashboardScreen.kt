@@ -158,6 +158,11 @@ fun DashboardScreen(navController: NavController) {
             )
 
             val menuItems = listOf(
+
+                // declencher appel vd
+                MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
+                // Historique des appels
+                MenuItem("Historique", Icons.Default.History, Color(0xFF9C27B0), "call_history"),
                 MenuItem("Known People", Icons.Default.People, Color(0xFF70CEE3), "known_persons"),
                 MenuItem("Alerts", Icons.Default.Notifications, Color(0xFFFFC107), "alerts"),
                 MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),

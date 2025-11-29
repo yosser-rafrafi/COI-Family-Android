@@ -1,6 +1,10 @@
 package tn.esprit.coidam
 
+import ActiveCallScreen
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -8,9 +12,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -18,40 +24,110 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.launch
+import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.data.repository.WebSocketManager
 import tn.esprit.coidam.screens.*
+
 
 class MainActivity : ComponentActivity() {
 
+    // WEBSOCKET
+    private lateinit var webSocketManager: WebSocketManager
+    private lateinit var tokenManager: TokenManager
+
+    // GOOGLE SIGN-IN
     private lateinit var googleSignInClient: GoogleSignInClient
     private var navController: NavHostController? = null
-
-    // ✅ ÉTAT GLOBAL POUR LE LOADING GOOGLE SIGN-IN
     private val _isGoogleSignInLoading = mutableStateOf(false)
     val isGoogleSignInLoading: State<Boolean> = _isGoogleSignInLoading
-
     private val RC_SIGN_IN = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Websocket init
+        webSocketManager = WebSocketManager.getInstance(this)
+        tokenManager = TokenManager(this)
+
+        // Google Sign-In
+        initGoogleSignIn()
+
+        // Permissions (camera, audio)
+        requestCallPermissions()
+
+        setContent {
+            val nav = rememberNavController()
+            navController = nav
+
+            // ✅ Connect WebSocket on app start (if user is logged in)
+            LaunchedEffect(Unit) {
+                if (tokenManager.getTokenSync() != null) {
+                    Log.d("MainActivity", "🔌 Connecting WebSocket on app start...")
+                    webSocketManager.connect()
+                } else {
+                    Log.d("MainActivity", "⚠️ No token, skipping WebSocket connection")
+                }
+            }
+
+            // observation webSocket : incoming calls
+            val incomingCall by webSocketManager.incomingCall.collectAsState()
+
+            LaunchedEffect(incomingCall) {
+                incomingCall?.let { incomingCallDto ->
+                    val callId = incomingCallDto.call.id
+                    Log.d("CALL", "📞 Incoming call: $callId")
+                    nav.navigate("incoming_call/$callId"){
+                        launchSingleTop = true
+                    }
+                    webSocketManager.clearIncomingCall()
+                }
+            }
+
+            AppNavHost(nav, isGoogleSignInLoading.value)
+        }
+    }
+    // GOOGLE INIT
+    private fun initGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken("230808302553-bht9c8jnbjsftpuphd53mjm9lve3333s.apps.googleusercontent.com")
             .requestEmail()
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(this, gso)
-        Log.d("GoogleSignIn", "✅ GoogleSignInClient initialisé")
+    }
 
-        setContent {
-            val navController = rememberNavController()
-            this@MainActivity.navController = navController
-
-            // ✅ PASSER L'ÉTAT DE LOADING AU COMPOSABLE
-            AppNavHost(navController, isGoogleSignInLoading.value)
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            if (tokenManager.getTokenSync() != null) {
+                webSocketManager.connect()
+            }
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        webSocketManager.disconnect()
+    }
+
+    private fun requestCallPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val permissions = arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.MODIFY_AUDIO_SETTINGS
+            )
+
+            val toRequest = permissions.filter {
+                checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+            }
+
+            if (toRequest.isNotEmpty()) {
+                requestPermissions(toRequest.toTypedArray(), 100)
+            }
+        }
+    }
     // ✅ AFFICHER LE LOADING AVANT DE LANCER GOOGLE SIGN-IN
     fun signInWithGoogle() {
         Log.d("GoogleSignIn", "🟡 Lancement du flux Google Sign-In")
@@ -209,9 +285,30 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
             AlertDetailScreen(navController, alertId)
         }
 
-        // ✅ NOUVELLE ROUTE POUR ENVOYER DES ALERTES
+        // ROUTE POUR ENVOYER DES ALERTES
         composable("send_alert") {
             CreateAlertScreen(navController)
         }
+
+        // ROUTES POUR LES APPELS
+        composable("start_call") {
+            StartCallScreen(navController)
+        }
+        composable("active_call/{callId}") { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: ""
+            ActiveCallScreen(navController, callId)
+        }
+        composable("call_history") {
+            CallHistoryScreen(navController)
+        }
+
+        composable(
+            route = "incoming_call/{callId}",
+            arguments = listOf(navArgument("callId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: ""
+            IncomingCallScreen(navController, callId)
+        }
+
     }
 }

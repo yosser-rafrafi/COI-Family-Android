@@ -99,6 +99,7 @@ class TokenManager(private val context: Context) {
         return context.dataStore.data.map { preferences ->
             preferences[LINKED_USER_ID_KEY]
         }.first()
+
     }
 
 
