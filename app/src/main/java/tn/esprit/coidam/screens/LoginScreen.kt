@@ -1,7 +1,6 @@
 package tn.esprit.coidam.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,13 +36,30 @@ fun LoginScreen(
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
+    val tokenManager = remember { tn.esprit.coidam.data.local.TokenManager(context) }
     val scope = rememberCoroutineScope()
+    
+    // Load saved credentials on screen load
+    LaunchedEffect(Unit) {
+        val savedEmail = tokenManager.getSavedEmailSync()
+        val savedPassword = tokenManager.getSavedPasswordSync()
+        val isRemembered = tokenManager.getRememberMeSync()
+        
+        if (isRemembered && savedEmail != null) {
+            email = savedEmail
+            rememberMe = true
+            if (savedPassword != null) {
+                password = savedPassword
+            }
+        }
+    }
 
     fun signIn() {
         if (email.isBlank() || password.isBlank()) {
@@ -71,6 +87,9 @@ fun LoginScreen(
                     val loginResult = authRepository.loginAs(option.userId, option.userType)
 
                     loginResult.onSuccess {
+                        // Save credentials if "Remember Me" is checked
+                        tokenManager.saveRememberMe(rememberMe, email.trim(), if (rememberMe) password else null)
+                        
                         if (option.userType == "companion") {
                             navController.navigate("companion_dashboard") {
                                 popUpTo("login") { inclusive = true }
@@ -199,7 +218,32 @@ fun LoginScreen(
                     HorizontalDivider(color = Color.Gray, thickness = 1.dp)
                 }
 
-                Spacer(modifier = Modifier.height(25.dp))
+                Spacer(modifier = Modifier.height(15.dp))
+
+                // Remember Me Checkbox
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF70CEE3),
+                            uncheckedColor = Color.Gray
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Remember Me",
+                        fontSize = 14.sp,
+                        modifier = Modifier.clickable { rememberMe = !rememberMe }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Sign In Button
                 Button(
@@ -323,7 +367,7 @@ fun GoogleSignInButton(
     isLoading: Boolean = false,
     enabled: Boolean = true
 ) {
-    val activity = LocalActivity.current as? MainActivity
+    val activity = LocalContext.current as? MainActivity
 
     Button(
         onClick = {

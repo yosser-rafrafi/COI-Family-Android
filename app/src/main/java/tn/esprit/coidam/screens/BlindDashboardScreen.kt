@@ -16,11 +16,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import tn.esprit.coidam.data.local.TokenManager
 
 
@@ -143,11 +141,11 @@ fun BlindDashboardScreen(navController: NavController) {
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            val menuItems =
-                listOf(
-                    MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
-                    MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
-                )
+            val menuItems = listOf(
+                MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
+                MenuItem("Camera", Icons.Default.PhotoCamera, Color(0xFF4CAF50), "blind_camera"),
+                MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),
+            )
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
@@ -157,7 +155,6 @@ fun BlindDashboardScreen(navController: NavController) {
             ) {
                 items(menuItems) { item ->
                     MenuCard(
-
                         item = item,
                         onClick = { navController.navigate(item.route) }
                     )
@@ -167,14 +164,4 @@ fun BlindDashboardScreen(navController: NavController) {
     }
 
 
-}
-
-
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun BlindDashboardScreenPreview() {
-    MaterialTheme {
-        BlindDashboardScreen(navController = rememberNavController())
-    }
 }

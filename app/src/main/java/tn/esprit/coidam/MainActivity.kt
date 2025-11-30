@@ -184,14 +184,15 @@ class MainActivity : ComponentActivity() {
             val result = authRepository.signInWithGoogle(idToken)
             result.onSuccess { authResponse ->
                 if (authResponse.options != null && authResponse.options.isNotEmpty()) {
-                    val companionOption = authResponse.options.find { it.userType == "companion" }
+                    val companionOption = authResponse.options.find { it.userType == "companion" } 
                         ?: authResponse.options.first()
                     val loginResult = authRepository.loginAs(companionOption.userId, companionOption.userType)
-                    loginResult.onSuccess {
-                        navController?.navigate("blind_dashboard") {
+                    loginResult.onSuccess {                        
+                        val destination = if (companionOption.userType == "companion") "companion_dashboard" else "blind_dashboard"
+                        navController?.navigate(destination) {
                             popUpTo("login") { inclusive = true }
                         }
-                        Log.d("GoogleSignIn", "✅ Login backend réussi avec profil companion")
+                        Log.d("GoogleSignIn", "✅ Login backend réussi avec profil ${companionOption.userType}")
                     }.onFailure { e ->
                         Log.e("GoogleSignIn", "❌ Erreur lors de la connexion au profil : ${e.message}")
                     }
@@ -262,7 +263,7 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
             UpdateProfilScreen(navController)
         }
         composable("companion_dashboard") {
-            DashboardScreen(navController)
+            CompanionDashboardScreen(navController)
         }
         composable("blind_dashboard") {
             BlindDashboardScreen(navController)
@@ -308,6 +309,14 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
         ) { backStackEntry ->
             val callId = backStackEntry.arguments?.getString("callId") ?: ""
             IncomingCallScreen(navController, callId)
+        }
+
+        composable("photos") {
+            PhotosListScreen(navController)
+        }
+
+        composable("blind_camera") {
+            BlindCameraScreen(navController)
         }
 
     }
