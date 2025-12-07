@@ -310,5 +310,13 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
             IncomingCallScreen(navController, callId)
         }
 
+        composable("face_recognition") {
+            FaceRecognitionScreen(navController)
+        }
+
+        composable("detection_history") {
+            DetectionHistoryScreen(navController)
+        }
+
     }
 }
