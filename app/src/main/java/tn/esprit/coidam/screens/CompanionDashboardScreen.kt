@@ -148,6 +148,7 @@ fun CompanionDashboardScreen(navController: NavController) {
                 MenuItem("Historique", Icons.Default.History, Color(0xFF9C27B0), "call_history"),
                 MenuItem("Known People", Icons.Default.People, Color(0xFF70CEE3), "known_persons"),
                 MenuItem("Alerts", Icons.Default.Notifications, Color(0xFFFFC107), "alerts"),
+                MenuItem("Battery Levels", Icons.Default.BatteryFull, Color(0xFFFF9800), "battery_levels"),
                 MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),
                 MenuItem("History", Icons.Default.History, Color(0xFF4CAF50), "history"),
                 MenuItem("Location", Icons.Default.LocationOn, Color(0xFFF44336), "location"),

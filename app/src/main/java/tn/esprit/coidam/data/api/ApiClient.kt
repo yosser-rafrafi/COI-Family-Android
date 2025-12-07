@@ -39,5 +39,6 @@ object ApiClient {
     val alertApiService: AlertApiService = retrofit.create(AlertApiService::class.java)
     val callApiService: CallApiService = retrofit.create(CallApiService::class.java)
     val reconnaissanceApiService: ReconnaissanceApiService = retrofit.create(ReconnaissanceApiService::class.java)
+    val batteryApiService: BatteryApiService = retrofit.create(BatteryApiService::class.java)
 
 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import tn.esprit.coidam.data.local.TokenManager
+import tn.esprit.coidam.services.BatteryMonitorService
 
 
 
@@ -29,6 +30,14 @@ fun BlindDashboardScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val tokenManager = remember { TokenManager(context) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // Start battery monitoring for blind users
+    LaunchedEffect(Unit) {
+        val userType = tokenManager.getUserTypeSync()
+        if (userType == "blind") {
+            BatteryMonitorService.startService(context)
+        }
+    }
 
     Column(
         modifier = Modifier

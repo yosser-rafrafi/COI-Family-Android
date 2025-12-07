@@ -55,6 +55,11 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="TA_CLE_API_ICI"/>
 
+        <service
+            android:name=".services.BatteryMonitorService"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
 
 

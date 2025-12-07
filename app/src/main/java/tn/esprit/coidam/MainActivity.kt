@@ -285,6 +285,9 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
             val alertId = backStackEntry.arguments?.getString("alertId") ?: ""
             AlertDetailScreen(navController, alertId)
         }
+        composable("battery_levels") {
+            BatteryLevelsScreen(navController)
+        }
 
         // ROUTE POUR ENVOYER DES ALERTES
         composable("send_alert") {

@@ -32,6 +32,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.services.BatteryMonitorService
 import android.content.Context
 import androidx.compose.runtime.LaunchedEffect
 
@@ -79,6 +80,14 @@ fun ProfilScreen(navController: NavController) {
 
     fun logout() {
         scope.launch {
+            // Stop battery monitoring service
+            try {
+                val intent = android.content.Intent(context, tn.esprit.coidam.services.BatteryMonitorService::class.java)
+                context.stopService(intent)
+            } catch (e: Exception) {
+                // Ignore if service wasn't running
+            }
+
             authRepository.logout()
             navController.navigate("login") {
                 popUpTo(0) { inclusive = true }
