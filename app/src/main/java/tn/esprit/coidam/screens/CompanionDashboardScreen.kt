@@ -142,6 +142,12 @@ fun CompanionDashboardScreen(navController: NavController) {
 
             val menuItems = listOf(
 
+                // ✅ NOUVEAU : Bouton pour la reconnaissance faciale
+                MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
+
+                // ✅ NOUVEAU : Bouton pour l'historique des détections
+                MenuItem("Detection History", Icons.Default.History, Color(0xFF4CAF50), "detection_history"),
+
                 // declencher appel vd
                 MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
                 // Historique des appels
