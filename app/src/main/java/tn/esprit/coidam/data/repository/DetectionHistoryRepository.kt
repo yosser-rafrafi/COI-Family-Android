@@ -17,7 +17,7 @@ class DetectionHistoryRepository(private val context: Context) {
     private val apiService = ApiClient.detectionHistoryApiService
     private val tokenManager = TokenManager(context)
     private val TAG = "DetectionHistoryRepo"
-    private val BASE_API_URL = ApiClient.BASE_URL.removeSuffix("/")  // Remove trailing slash for consistency
+    private val BASE_API_URL = ApiClient.BASE_URL // Remove trailing slash for consistency
 
 
     // ✅ RÉCUPÉRER TOUT L'HISTORIQUE

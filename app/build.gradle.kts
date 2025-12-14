@@ -109,6 +109,7 @@ dependencies {
     // notofication socket
     implementation("io.socket:socket.io-client:2.1.0")
     implementation("org.json:json:20231013")
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
     implementation("io.agora.rtc:full-sdk:4.0.1")
 

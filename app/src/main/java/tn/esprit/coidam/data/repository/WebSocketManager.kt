@@ -51,7 +51,7 @@ class WebSocketManager(private val context: Context) {
             }
 
             // ⚠️ REMPLACER PAR VOTRE IP SERVEUR
-            val serverUrl = ApiClient.BASE_URL.trimEnd('/') // Remove trailing slash
+            val serverUrl = ApiClient.BASE_URL // Remove trailing slash
             val wsUrl = "$serverUrl/video-call"
             
             Log.d(TAG, "🔌 Attempting to connect to WebSocket: $wsUrl")
