@@ -356,6 +356,7 @@ fun BlindDashboardScreen(navController: NavController) {
                 MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
                 MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
                 MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
+                MenuItem("Auto blind", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "auto_blind"),
             )
 
             LazyVerticalGrid(

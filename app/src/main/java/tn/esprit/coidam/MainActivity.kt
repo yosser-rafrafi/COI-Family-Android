@@ -267,6 +267,9 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
         composable("blind_dashboard") {
             BlindDashboardScreen(navController)
         }
+        composable("auto_blind") {
+            AutoBlindScreen(navController)
+        }
         composable("known_persons") {
             KnownPersonListScreen(navController)
         }
