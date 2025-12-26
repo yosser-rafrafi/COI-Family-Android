@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    const val BASE_URL = "http://192.168.43.128:3000"
+    const val BASE_URL = "http://172.18.1.12:3000"
     // private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
     // For physical device, use your computer's IP: "http://192.168.x.x:3000/"
 

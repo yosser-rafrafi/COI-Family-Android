@@ -15,18 +15,19 @@ import tn.esprit.coidam.data.models.Voice.VoiceInstruction
 import tn.esprit.coidam.data.models.Voice.VoiceResponse
 
 /**
- * Client WebSocket pour les commandes vocales
+ * Client WebSocket pour les commandes vocales (SINGLETON)
  * Supporte 2 modes:
  * 1. Envoyer du texte transcrit localement (Android Speech Recognition)
  * 2. Envoyer de l'audio pour transcription serveur (Whisper)
  */
-class VoiceWebSocketClient(private val context: Context) {
+class VoiceWebSocketClient private constructor(private val context: Context) {
 
     private var socket: Socket? = null
     private val tokenManager = TokenManager(context)
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState
+    private var isConnecting = false  // ✅ Flag pour éviter connexions multiples
 
     private val _voiceInstruction = MutableStateFlow<VoiceInstruction?>(null)
     val voiceInstruction: StateFlow<VoiceInstruction?> = _voiceInstruction
@@ -36,28 +37,73 @@ class VoiceWebSocketClient(private val context: Context) {
 
     companion object {
         private const val TAG = "VoiceWebSocketClient"
-        // ✅ À REMPLACER PAR VOTRE URL SERVEUR
-        private const val SERVER_URL = ApiClient.BASE_URL // Exemple: votre IP locale
+        private const val SERVER_URL = ApiClient.BASE_URL
         private const val NAMESPACE = "/voice-commands"
+        
+        @Volatile
+        private var INSTANCE: VoiceWebSocketClient? = null
+        
+        /**
+         * Get singleton instance of VoiceWebSocketClient
+         */
+        fun getInstance(context: Context): VoiceWebSocketClient {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: VoiceWebSocketClient(context.applicationContext).also {
+                    INSTANCE = it
+                }
+            }
+        }
+        
+        // ✅ CORRECTION: Nettoyer l'instance au logout
+        fun resetInstance() {
+            synchronized(this) {
+                INSTANCE?.disconnect()
+                INSTANCE = null
+            }
+        }
     }
 
 
 
     /**
-     * ✅ Connexion au WebSocket
+     * Check if we should attempt to connect/reconnect
+     */
+    fun shouldReconnect(): Boolean {
+        return socket == null || socket?.connected() == false
+    }
+
+    /**
+     * ✅ Connexion au WebSocket avec vérification d'état robuste
      */
     suspend fun connect() {
-        if (_connectionState.value == ConnectionState.CONNECTED) {
-            Log.d(TAG, "Already connected")
+        // ✅ Check 1: Is there an existing connected socket?
+        if (socket?.connected() == true) {
+            Log.d(TAG, "⚠️ Already connected, reusing existing socket")
+            _connectionState.value = ConnectionState.CONNECTED
             return
+        }
+        
+        // ✅ Check 2: Is there a connection already in progress?
+        if (isConnecting) {
+            Log.d(TAG, "⚠️ Connection already in progress")
+            return
+        }
+        
+        // ✅ Check 3: Clean up any existing socket before creating new one
+        if (socket != null) {
+            Log.d(TAG, "🧹 Cleaning up existing disconnected socket")
+            socket?.off()
+            socket?.disconnect()
+            socket = null
         }
 
         try {
+            isConnecting = true  // ✅ Set flag
             _connectionState.value = ConnectionState.CONNECTING
 
             val userId = tokenManager.getUserIdSync()
             if (userId == null || userId.isEmpty()) {
-                Log.e(TAG, "No userId available")
+                Log.e(TAG, "❌ No userId available")
                 _connectionState.value = ConnectionState.DISCONNECTED
                 return
             }
@@ -65,29 +111,31 @@ class VoiceWebSocketClient(private val context: Context) {
             val linkedUserId = tokenManager.getLinkedUserIdSync()
 
             val options = IO.Options().apply {
-                // ✅ Pass userId via query parameters instead of token
                 query = "userId=$userId&userType=blind" + 
                         if (linkedUserId != null) "&linkedUserId=$linkedUserId" else ""
                 reconnection = true
-                reconnectionAttempts = 5
+                reconnectionAttempts = 5  // ✅ Finite attempts, not infinite
                 reconnectionDelay = 1000
+                reconnectionDelayMax = 5000
                 timeout = 10000
             }
 
             val fullUrl = "$SERVER_URL$NAMESPACE"
-            Log.d(TAG, "Connecting to: $fullUrl")
-            Log.d(TAG, "With userId: $userId")
+            Log.d(TAG, "🔌 Creating new socket connection to: $fullUrl")
+            Log.d(TAG, "👤 User ID: $userId")
 
             socket = IO.socket(fullUrl, options)
             setupSocketListeners()
             socket?.connect()
 
         } catch (e: URISyntaxException) {
-            Log.e(TAG, "Invalid URL", e)
-            _connectionState.value = ConnectionState.DISCONNECTED
+            Log.e(TAG, "❌ Invalid URL", e)
+            _connectionState.value = ConnectionState.ERROR
+            isConnecting = false  // ✅ Clear flag
         } catch (e: Exception) {
-            Log.e(TAG, "Connection error", e)
-            _connectionState.value = ConnectionState.DISCONNECTED
+            Log.e(TAG, "❌ Connection error", e)
+            _connectionState.value = ConnectionState.ERROR
+            isConnecting = false  // ✅ Clear flag
         }
     }
 
@@ -99,6 +147,7 @@ class VoiceWebSocketClient(private val context: Context) {
             on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "✅ Connected to server")
                 _connectionState.value = ConnectionState.CONNECTED
+                isConnecting = false  // ✅ Clear flag
             }
 
             on("connected") { args ->
@@ -149,11 +198,13 @@ class VoiceWebSocketClient(private val context: Context) {
             on(Socket.EVENT_DISCONNECT) {
                 Log.d(TAG, "❌ Disconnected from server")
                 _connectionState.value = ConnectionState.DISCONNECTED
+                isConnecting = false  // ✅ Clear flag
             }
 
             on(Socket.EVENT_CONNECT_ERROR) { args ->
                 Log.e(TAG, "Connection error: ${args[0]}")
                 _connectionState.value = ConnectionState.DISCONNECTED
+                isConnecting = false  // ✅ Clear flag
             }
         }
     }
@@ -244,13 +295,23 @@ class VoiceWebSocketClient(private val context: Context) {
     }
 
     /**
-     * ✅ Déconnexion
+     * ✅ Déconnexion et nettoyage
      */
     fun disconnect() {
-        socket?.disconnect()
+        Log.d(TAG, "🔌 Disconnecting socket...")
+        
+        // Remove all event listeners first
         socket?.off()
+        
+        // Disconnect the socket
+        socket?.disconnect()
+        
+        // Clear the reference
         socket = null
+        
+        // Update state
         _connectionState.value = ConnectionState.DISCONNECTED
-        Log.d(TAG, "Disconnected and cleaned up")
+        
+        Log.d(TAG, "✅ Socket disconnected and cleaned up")
     }
 }

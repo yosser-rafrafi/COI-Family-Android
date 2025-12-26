@@ -41,9 +41,31 @@ class WebSocketManager(private val context: Context) {
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState
+    private var isConnecting = false  // ✅ Flag pour éviter connexions multiples
 
     suspend fun connect() {
+        // ✅ Check 1: Already connected?
+        if (_connectionState.value == ConnectionState.CONNECTED) {
+            Log.d(TAG, "⚠️ Already connected, skipping WebSocket connection")
+            return
+        }
+        
+        // ✅ Check 2: Connection in progress?
+        if (isConnecting) {
+            Log.d(TAG, "⚠️ Connection already in progress")
+            return
+        }
+        
+        // ✅ Check 3: Existing socket?
+        if (socket != null && socket?.connected() == true) {
+            Log.d(TAG, "⚠️ Socket already connected")
+            _connectionState.value = ConnectionState.CONNECTED
+            return
+        }
+
         try {
+            isConnecting = true  // ✅ Set flag
+            
             val userId = tokenManager.getUserIdSync()
             if (userId == null) {
                 Log.e(TAG, "❌ Cannot connect: userId is null")
@@ -64,7 +86,7 @@ class WebSocketManager(private val context: Context) {
                 reconnection = true
                 reconnectionDelay = 1000
                 reconnectionDelayMax = 5000
-                reconnectionAttempts = Integer.MAX_VALUE
+                reconnectionAttempts = Int.MAX_VALUE  // ✅ CORRECTION 2: Tentatives infinies
                 timeout = 10000
             }
 
@@ -73,31 +95,20 @@ class WebSocketManager(private val context: Context) {
             socket?.apply {
                 // ✅ Événement de connexion
                 on(Socket.EVENT_CONNECT) {
-                    Log.d(TAG, "✅ WebSocket connected to server")
+                    Log.d(TAG, "✅ WebSocket connected")
                     _connectionState.value = ConnectionState.CONNECTED
+                    isConnecting = false  // ✅ Clear flag
 
-                    // Rejoindre la room avec userId
                     val joinData = JSONObject().apply {
                         put("userId", userId)
                     }
-                    Log.d(TAG, "📤 Emitting join-room with userId: $userId")
                     emit("join-room", joinData)
                 }
 
-                // ❌ Événement de déconnexion
                 on(Socket.EVENT_DISCONNECT) {
                     Log.d(TAG, "❌ WebSocket disconnected")
                     _connectionState.value = ConnectionState.DISCONNECTED
-                }
-
-                on(Socket.EVENT_DISCONNECT) {
-                    Log.d(TAG, "Disconnected — trying to reconnect automatically…")
-                    _connectionState.value = ConnectionState.RECONNECTING
-                }
-
-                on(Socket.EVENT_CONNECT) {
-                    Log.d(TAG, "Reconnected")
-                    _connectionState.value = ConnectionState.CONNECTED
+                    isConnecting = false  // ✅ Clear flag
                 }
 
                 // ⚠️ Erreur de connexion
@@ -107,6 +118,33 @@ class WebSocketManager(private val context: Context) {
                     Log.e(TAG, "❌ Failed to connect to: $finalWsUrl")
                     Log.e(TAG, "❌ Check: 1) Server is running, 2) URL is correct, 3) Network is accessible")
                     _connectionState.value = ConnectionState.ERROR
+                    isConnecting = false  // ✅ Clear flag
+                }
+                
+                // ✅ CORRECTION 3: Gérer la reconnexion
+                on("reconnect") { args ->
+                    val attemptNumber = args.firstOrNull() as? Int ?: 0
+                    Log.d(TAG, "🔄 Reconnected after $attemptNumber attempts")
+                    _connectionState.value = ConnectionState.CONNECTED
+                    isConnecting = false
+                    
+                    // ✅ Re-join room après reconnexion (userId déjà stocké)
+                    Log.d(TAG, "🔄 Re-joining room for user: $userId")
+                    val joinData = JSONObject().apply {
+                        put("userId", userId)
+                    }
+                    emit("join-room", joinData)
+                }
+                
+                on("reconnect_attempt") { args ->
+                    val attemptNumber = args.firstOrNull() as? Int ?: 0
+                    Log.d(TAG, "🔄 Reconnection attempt #$attemptNumber")
+                }
+                
+                on("reconnect_failed") {
+                    Log.e(TAG, "❌ Reconnection failed after max attempts")
+                    _connectionState.value = ConnectionState.ERROR
+                    isConnecting = false
                 }
 
                 // 🎉 Room rejoint avec succès
@@ -196,13 +234,14 @@ class WebSocketManager(private val context: Context) {
 
                 // Se connecter
                 Log.d(TAG, "🔌 Calling socket.connect()...")
-                connect()
+                socket?.connect()
                 Log.d(TAG, "🔌 socket.connect() called, waiting for connection...")
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting up socket: ${e.message}", e)
             Log.e(TAG, "❌ Stack trace:", e)
             _connectionState.value = ConnectionState.ERROR
+            isConnecting = false  // ✅ Clear flag
         }
     }
 
@@ -291,6 +330,14 @@ class WebSocketManager(private val context: Context) {
                 INSTANCE ?: WebSocketManager(context.applicationContext).also {
                     INSTANCE = it
                 }
+            }
+        }
+        
+        // ✅ CORRECTION: Nettoyer l'instance au logout
+        fun resetInstance() {
+            synchronized(this) {
+                INSTANCE?.disconnect()
+                INSTANCE = null
             }
         }
     }

@@ -23,9 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import android.util.Log
 import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.R
+import tn.esprit.coidam.data.api.VoiceWebSocketClient  // ✅ AJOUT
 import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.data.repository.WebSocketManager  // ✅ AJOUT
 import tn.esprit.coidam.ui.theme.ThemedBackground
 
 @Composable
@@ -73,6 +76,23 @@ fun LoginScreen(
                     val loginResult = authRepository.loginAs(option.userId, option.userType)
 
                     loginResult.onSuccess {
+                        // ✅ SOLUTION 1: Connecter WebSockets IMMÉDIATEMENT après login
+                        Log.d("LoginScreen", "🔌 Connecting sockets after login for ${option.userType}...")
+                        scope.launch {
+                            try {
+                                val webSocketManager = WebSocketManager.getInstance(context)
+                                val voiceSocketManager = VoiceWebSocketClient.getInstance(context)
+                                
+                                webSocketManager.connect()
+                                voiceSocketManager.connect()
+                                
+                                Log.d("LoginScreen", "✅ Sockets connection initiated")
+                            } catch (e: Exception) {
+                                Log.e("LoginScreen", "❌ Error connecting sockets: ${e.message}", e)
+                            }
+                        }
+                        
+                        // Puis naviguer vers le dashboard approprié
                         if (option.userType == "companion") {
                             navController.navigate("companion_dashboard") {
                                 popUpTo("login") { inclusive = true }

@@ -1,6 +1,7 @@
 package tn.esprit.coidam.screens
 
 import android.Manifest
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -31,6 +32,7 @@ import tn.esprit.coidam.data.api.VoiceCommandService
 import tn.esprit.coidam.data.api.VoiceWebSocketClient
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.models.Enums.ConnectionState
+import tn.esprit.coidam.data.repository.WebSocketManager
 
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -40,9 +42,9 @@ fun BlindDashboardScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val tokenManager = remember { TokenManager(context) }
 
-    // ✅ Services
+    // ✅ Services (using singleton)
     val voiceService = remember { VoiceCommandService(context) }
-    val wsClient = remember { VoiceWebSocketClient(context) }
+    val wsClient = remember { VoiceWebSocketClient.getInstance(context) }
 
     // ✅ États
     val isVoiceReady by voiceService.isReady.collectAsState()
@@ -63,11 +65,15 @@ fun BlindDashboardScreen(navController: NavController) {
         )
     )
 
-    // ✅ Connexion WebSocket au démarrage
+    // ✅ Connexion WebSocket au démarrage (only if needed)
     LaunchedEffect(Unit) {
         if (permissionsState.allPermissionsGranted) {
-            delay(500)
-            wsClient.connect()
+            if (wsClient.shouldReconnect()) {
+                delay(500)
+                wsClient.connect()
+            } else {
+                Log.d("BlindDashboard", "✅ Socket already connected, reusing")
+            }
         }
     }
 
@@ -156,11 +162,11 @@ fun BlindDashboardScreen(navController: NavController) {
         }
     }
 
-    // ✅ Nettoyer à la sortie
+    // ✅ Nettoyer à la sortie (only voice service, not WebSocket)
     DisposableEffect(Unit) {
         onDispose {
             voiceService.cleanup()
-            wsClient.disconnect()
+            // Don't disconnect WebSocket here - let MainActivity handle it
         }
     }
 
@@ -412,19 +418,31 @@ fun BlindDashboardScreen(navController: NavController) {
             text = { Text("Voulez-vous vraiment vous déconnecter ?") },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        scope.launch {
-                            tokenManager.clear()
-                            voiceService.cleanup()
-                            wsClient.disconnect()
-                            navController.navigate("login") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                onClick = {
+                    scope.launch {
+                        // ✅ Get singleton instances
+                        val webSocketManager = WebSocketManager.getInstance(context)
+                        val voiceSocketManager = VoiceWebSocketClient.getInstance(context)
+                        
+                        // Clear token
+                        tokenManager.clear()
+                        
+                        // Cleanup services
+                        voiceService.cleanup()
+                        
+                        // ✅ Disconnect both sockets
+                        webSocketManager.disconnect()
+                        voiceSocketManager.disconnect()
+                        
+                        // Navigate to login
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
                         }
                     }
-                ) {
-                    Text("Oui")
                 }
+            ) {
+                Text("Oui")
+            }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {

@@ -24,7 +24,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay  // ✅ AJOUT
+import tn.esprit.coidam.data.api.VoiceWebSocketClient
 import tn.esprit.coidam.data.local.TokenManager
+import tn.esprit.coidam.data.models.Enums.ConnectionState  // ✅ AJOUT
 import tn.esprit.coidam.data.repository.AuthRepository
 import tn.esprit.coidam.data.repository.WebSocketManager
 import tn.esprit.coidam.screens.*
@@ -34,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     // WEBSOCKET
     private lateinit var webSocketManager: WebSocketManager
+    private lateinit var voiceSocketManager: VoiceWebSocketClient
     private lateinit var tokenManager: TokenManager
 
     // GOOGLE SIGN-IN
@@ -46,8 +50,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Websocket init
+        // Websocket init (both managers)
         webSocketManager = WebSocketManager.getInstance(this)
+        voiceSocketManager = VoiceWebSocketClient.getInstance(this)
         tokenManager = TokenManager(this)
 
         // Google Sign-In
@@ -60,13 +65,22 @@ class MainActivity : ComponentActivity() {
             val nav = rememberNavController()
             navController = nav
 
-            // ✅ Connect WebSocket on app start (if user is logged in)
+            // ✅ Connect both WebSockets on app start (if user is logged in)
             LaunchedEffect(Unit) {
-                if (tokenManager.getTokenSync() != null) {
-                    Log.d("MainActivity", "🔌 Connecting WebSocket on app start...")
+                // ✅ SOLUTION 3: Petit délai pour laisser le temps au token de se charger
+                delay(500)
+                
+                val token = tokenManager.getTokenSync()
+                if (token != null) {
+                    Log.d("MainActivity", "🔌 Connecting sockets on app start (cold start)...")
+                    
+                    // Connect video call socket
                     webSocketManager.connect()
+                    
+                    // Connect voice command socket
+                    voiceSocketManager.connect()
                 } else {
-                    Log.d("MainActivity", "⚠️ No token, skipping WebSocket connection")
+                    Log.d("MainActivity", "⚠️ No token, skipping socket connections")
                 }
             }
 
@@ -96,19 +110,36 @@ class MainActivity : ComponentActivity() {
 
         googleSignInClient = GoogleSignIn.getClient(this, gso)
     }
-
+    
+    // ✅ CORRECTION 1: Reconnecter quand l'app revient au premier plan
     override fun onResume() {
         super.onResume()
+        
+        // Reconnecter les sockets si l'utilisateur est connecté
         lifecycleScope.launch {
-            if (tokenManager.getTokenSync() != null) {
-                webSocketManager.connect()
+            val token = tokenManager.getTokenSync()
+            if (token != null) {
+                Log.d("MainActivity", "🔄 App resumed, reconnecting sockets...")
+                
+                // Reconnecter si déconnecté
+                if (webSocketManager.connectionState.value != ConnectionState.CONNECTED) {
+                    webSocketManager.connect()
+                }
+                
+                if (voiceSocketManager.connectionState.value != ConnectionState.CONNECTED) {
+                    voiceSocketManager.connect()
+                }
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        
+        // ✅ Disconnect both sockets when app is destroyed
+        Log.d("MainActivity", "🔌 App destroyed, disconnecting sockets...")
         webSocketManager.disconnect()
+        voiceSocketManager.disconnect()
     }
 
     private fun requestCallPermissions() {
@@ -188,6 +219,18 @@ class MainActivity : ComponentActivity() {
                         ?: authResponse.options.first()
                     val loginResult = authRepository.loginAs(companionOption.userId, companionOption.userType)
                     loginResult.onSuccess {
+                        // ✅ SOLUTION 1: Connecter WebSockets après Google Sign-In
+                        Log.d("GoogleSignIn", "🔌 Connecting sockets after Google login...")
+                        lifecycleScope.launch {
+                            try {
+                                webSocketManager.connect()
+                                voiceSocketManager.connect()
+                                Log.d("GoogleSignIn", "✅ Sockets connection initiated")
+                            } catch (e: Exception) {
+                                Log.e("GoogleSignIn", "❌ Error connecting sockets: ${e.message}", e)
+                            }
+                        }
+                        
                         navController?.navigate("blind_dashboard") {
                             popUpTo("login") { inclusive = true }
                         }

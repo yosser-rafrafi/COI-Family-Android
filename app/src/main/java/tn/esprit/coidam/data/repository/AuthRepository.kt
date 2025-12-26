@@ -3,6 +3,7 @@ package tn.esprit.coidam.data.repository
 import android.content.Context
 import android.util.Log
 import tn.esprit.coidam.data.api.ApiClient
+import tn.esprit.coidam.data.api.VoiceWebSocketClient
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.models.*
 import tn.esprit.coidam.data.models.AuthDto.ForgotPasswordDto
@@ -362,6 +363,10 @@ class AuthRepository(private val context: Context) {
 
     suspend fun logout() {
         tokenManager.clear()
+        
+        // ✅ CORRECTION: Nettoyer les singletons WebSocket
+        WebSocketManager.resetInstance()
+        VoiceWebSocketClient.resetInstance()
     }
 
     suspend fun getToken(): String? {
