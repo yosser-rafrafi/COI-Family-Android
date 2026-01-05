@@ -49,7 +49,7 @@ fun ActiveCallScreen(
     val scope = rememberCoroutineScope()
     val callRepository = remember { CallRepository(context) }
     val tokenManager = remember { TokenManager(context) }
-    val webSocketManager = remember { WebSocketManager.getInstance(context) }
+    val webSocketManager = WebSocketManager.getInstance(context)
 
     var call by remember { mutableStateOf<Call?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -59,7 +59,7 @@ fun ActiveCallScreen(
     var callDuration by remember { mutableStateOf(0) }
     var showEndDialog by remember { mutableStateOf(false) }
 
-    // ✅ Observe WebSocket events
+    // ✅ Observe bSocket events
     val callAccepted by webSocketManager.callAccepted.collectAsState()
     val callEnded by webSocketManager.callEnded.collectAsState()
 

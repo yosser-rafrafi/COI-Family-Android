@@ -1,6 +1,7 @@
 package tn.esprit.coidam.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import tn.esprit.coidam.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -20,9 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import android.util.Log
 import tn.esprit.coidam.MainActivity
 import tn.esprit.coidam.R
+import tn.esprit.coidam.data.api.VoiceWebSocketClient  // ✅ AJOUT
 import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.data.repository.WebSocketManager  // ✅ AJOUT
 import tn.esprit.coidam.ui.theme.ThemedBackground
 
 @Composable
@@ -36,30 +42,13 @@ fun LoginScreen(
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var rememberMe by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val authRepository = remember { AuthRepository(context) }
-    val tokenManager = remember { tn.esprit.coidam.data.local.TokenManager(context) }
     val scope = rememberCoroutineScope()
-    
-    // Load saved credentials on screen load
-    LaunchedEffect(Unit) {
-        val savedEmail = tokenManager.getSavedEmailSync()
-        val savedPassword = tokenManager.getSavedPasswordSync()
-        val isRemembered = tokenManager.getRememberMeSync()
-        
-        if (isRemembered && savedEmail != null) {
-            email = savedEmail
-            rememberMe = true
-            if (savedPassword != null) {
-                password = savedPassword
-            }
-        }
-    }
 
     fun signIn() {
         if (email.isBlank() || password.isBlank()) {
@@ -87,9 +76,23 @@ fun LoginScreen(
                     val loginResult = authRepository.loginAs(option.userId, option.userType)
 
                     loginResult.onSuccess {
-                        // Save credentials if "Remember Me" is checked
-                        tokenManager.saveRememberMe(rememberMe, email.trim(), if (rememberMe) password else null)
+                        // ✅ SOLUTION 1: Connecter WebSockets IMMÉDIATEMENT après login
+                        Log.d("LoginScreen", "🔌 Connecting sockets after login for ${option.userType}...")
+                        scope.launch {
+                            try {
+                                val webSocketManager = WebSocketManager.getInstance(context)
+                                val voiceSocketManager = VoiceWebSocketClient.getInstance(context)
+                                
+                                webSocketManager.connect()
+                                voiceSocketManager.connect()
+                                
+                                Log.d("LoginScreen", "✅ Sockets connection initiated")
+                            } catch (e: Exception) {
+                                Log.e("LoginScreen", "❌ Error connecting sockets: ${e.message}", e)
+                            }
+                        }
                         
+                        // Puis naviguer vers le dashboard approprié
                         if (option.userType == "companion") {
                             navController.navigate("companion_dashboard") {
                                 popUpTo("login") { inclusive = true }
@@ -119,203 +122,229 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 25.dp),
-            verticalArrangement = Arrangement.SpaceEvenly,
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(60.dp))
+            
             // Title
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 40.dp)
+            ) {
                 Text(
-                    text = "HELLO AGAIN",
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "Hello Again !",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AppTheme.darkGray
                 )
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Welcome Back!",
-                    fontSize = 20.sp
+                    fontSize = 16.sp,
+                    color = AppTheme.textGray
                 )
             }
 
-            // Form Container
-            Column(
+            // Form Container with shadow
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        color = Color.White.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .border(1.dp, Color.White, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 25.dp)
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(30.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Email Field
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White.copy(alpha = 0.01f))
+                        .padding(horizontal = 32.dp)
+                        .padding(top = 40.dp)
                 ) {
+                    // Email Field
                     Row(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.mail),
                             contentDescription = "Email Icon",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(AppTheme.buttonBlue)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        TextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            placeholder = { Text("Email") },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            TextField(
+                                value = email,
+                                onValueChange = { email = it },
+                                placeholder = { 
+                                    Text(
+                                        "Email Address",
+                                        color = AppTheme.textGray
+                                    ) 
+                                },
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = AppTheme.darkGray,
+                                    unfocusedTextColor = AppTheme.darkGray
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            HorizontalDivider(
+                                color = AppTheme.textGray.copy(alpha = 0.3f),
+                                thickness = 1.dp
+                            )
+                        }
                     }
-                    HorizontalDivider(color = Color.Gray, thickness = 1.dp)
-                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Password Field
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White.copy(alpha = 0.01f))
-                ) {
+                    // Password Field
                     Row(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.padlock),
                             contentDescription = "Password Icon",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(AppTheme.buttonBlue)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        TextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            placeholder = { Text("Password") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            TextField(
+                                value = password,
+                                onValueChange = { password = it },
+                                placeholder = { 
+                                    Text(
+                                        "Password",
+                                        color = AppTheme.textGray
+                                    ) 
+                                },
+                                visualTransformation = PasswordVisualTransformation(),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = AppTheme.darkGray,
+                                    unfocusedTextColor = AppTheme.darkGray
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            HorizontalDivider(
+                                color = AppTheme.textGray.copy(alpha = 0.3f),
+                                thickness = 1.dp
+                            )
+                        }
                     }
-                    HorizontalDivider(color = Color.Gray, thickness = 1.dp)
-                }
 
-                Spacer(modifier = Modifier.height(15.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                // Remember Me Checkbox
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = rememberMe,
-                        onCheckedChange = { rememberMe = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF70CEE3),
-                            uncheckedColor = Color.Gray
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Remember Me",
-                        fontSize = 14.sp,
-                        modifier = Modifier.clickable { rememberMe = !rememberMe }
-                    )
-                }
+                    // Sign In Button with gradient
+                    Button(
+                        onClick = { signIn() },
+                        enabled = !isLoading && !isGoogleLoading && email.isNotEmpty() && password.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(55.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = if (isLoading) {
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                AppTheme.buttonBlue.copy(alpha = 0.7f),
+                                                AppTheme.buttonBlue.copy(alpha = 0.6f)
+                                            )
+                                        )
+                                    } else {
+                                        AppTheme.buttonGradient
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "Sign In",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                    }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // Sign In Button
-                Button(
-                    onClick = { signIn() },
-                    enabled = !isLoading && !isGoogleLoading, // ✅ DÉSACTIVER SI GOOGLE LOADING
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF70CEE3)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
+                    // Forgot Password
+                    TextButton(
+                        onClick = { navController.navigate("forgot_password") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
-                            text = "Sign In",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            text = "Forget password",
+                            fontSize = 14.sp,
+                            color = AppTheme.textGray
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Not a member
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 32.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Don't have an account? ",
+                            fontSize = 14.sp,
+                            color = AppTheme.textGray
+                        )
+                        Text(
+                            text = "Sign Up",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppTheme.buttonBlue,
+                            modifier = Modifier.clickable {
+                                navController.navigate("register")
+                            }
+                        )
+                    }
+
                 }
-
-                // Forgot Password
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 9.dp, bottom = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Forgot Password",
-                        color = Color(0xFF129FA9),
-                        modifier = Modifier.clickable {
-                            navController.navigate("forgot_password")
-                        }
-                    )
-                }
-
-                // Not a member
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Not a member?",
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = " Register Now",
-                        color = Color(0xFF129FA9),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable {
-                            navController.navigate("register")
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(15.dp))
-
-                // ✅ GOOGLE SIGN-IN BUTTON AVEC LOADING
-                GoogleSignInButton(
-                    isLoading = isGoogleLoading,
-                    enabled = !isLoading && !isGoogleLoading
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
             }
+            
+            Spacer(modifier = Modifier.height(40.dp))
         }
 
         // ✅ OVERLAY DE LOADING GOOGLE SIGN-IN
@@ -367,7 +396,7 @@ fun GoogleSignInButton(
     isLoading: Boolean = false,
     enabled: Boolean = true
 ) {
-    val activity = LocalContext.current as? MainActivity
+    val activity = LocalActivity.current as? MainActivity
 
     Button(
         onClick = {

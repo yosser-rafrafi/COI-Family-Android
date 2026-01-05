@@ -12,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import tn.esprit.coidam.ui.theme.AppTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -112,55 +114,54 @@ fun SignupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.SpaceEvenly,
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(60.dp))
+
+            // Title
             Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 40.dp)
+            ) {
+                Text(
+                    text = "Hello There",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AppTheme.darkGray
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Register below with your details",
+                    fontSize = 16.sp,
+                    color = AppTheme.textGray
+                )
+            }
+
+            // Form Container with shadow
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.SpaceEvenly,
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(30.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(55.dp))
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "HELLO THERE",
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Register below with your details!",
-                        fontSize = 20.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(40.dp))
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            color = Color.White.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .border(1.dp, Color.White, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 25.dp)
+                        .padding(horizontal = 32.dp)
+                        .padding(top = 40.dp)
                 ) {
-                    Spacer(modifier = Modifier.height(10.dp))
-
                     CustomTextField(
                         value = email,
                         onValueChange = { email = it },
-                        placeholder = "Email"
+                        placeholder = "Email Address"
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     CustomTextField(
                         value = password,
@@ -169,7 +170,7 @@ fun SignupScreen(
                         isPassword = true
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     CustomTextField(
                         value = confirmPassword,
@@ -178,66 +179,85 @@ fun SignupScreen(
                         isPassword = true
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    // Sign Up Button with gradient
                     Button(
                         onClick = { signUp() },
-                        enabled = !isLoading && !isGoogleLoading, // ✅ DÉSACTIVER SI GOOGLE LOADING
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF70CEE3)
-                        ),
+                        enabled = !isLoading && !isGoogleLoading && email.isNotEmpty() && 
+                                password.isNotEmpty() && confirmPassword.isNotEmpty() &&
+                                password == confirmPassword,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(55.dp),
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        contentPadding = PaddingValues(0.dp)
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            Text(
-                                text = "Sign Up",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = if (isLoading) {
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                AppTheme.buttonBlue.copy(alpha = 0.7f),
+                                                AppTheme.buttonBlue.copy(alpha = 0.6f)
+                                            )
+                                        )
+                                    } else {
+                                        AppTheme.buttonGradient
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "Sign Up",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(15.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
+                    // Login Link
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 32.dp),
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "I am member!",
-                            fontWeight = FontWeight.Bold
+                            text = "I am member! ",
+                            fontSize = 14.sp,
+                            color = AppTheme.darkGray
                         )
                         Text(
-                            text = " Login Now",
-                            color = Color(0xFF129FA9),
-                            fontWeight = FontWeight.Bold,
+                            text = "Login Now",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppTheme.buttonBlue,
                             modifier = Modifier.clickable {
                                 navController.navigate("login")
                             }
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(15.dp))
-
-                    // ✅ GOOGLE SIGN-IN BUTTON AVEC LOADING
-                    GoogleSignInButton(
-                        isLoading = isGoogleLoading,
-                        enabled = !isLoading && !isGoogleLoading
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
-
-                Spacer(modifier = Modifier.height(30.dp))
             }
+
+            Spacer(modifier = Modifier.height(40.dp))
         }
 
         // ✅ OVERLAY DE LOADING GOOGLE SIGN-IN
@@ -295,26 +315,33 @@ fun CustomTextField(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.01f))
     ) {
         TextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = { Text(placeholder) },
+            placeholder = { 
+                Text(
+                    placeholder,
+                    color = AppTheme.textGray
+                ) 
+            },
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
                 disabledContainerColor = Color.Transparent,
                 focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = AppTheme.darkGray,
+                unfocusedTextColor = AppTheme.darkGray
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         )
+        Spacer(modifier = Modifier.height(4.dp))
         HorizontalDivider(
-            color = Color.Gray,
+            color = AppTheme.textGray.copy(alpha = 0.3f),
             thickness = 1.dp
         )
     }
