@@ -8,8 +8,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-
-    const val BASE_URL = "http://172.18.1.12:3000"
+    // TODO: Change this to your backend URL
+   //
+    const val BASE_URL = "http://192.168.137.3:3000"
     // private const val BASE_URL = "http://10.0.2.2:3000/" // For Android Emulator
     // For physical device, use your computer's IP: "http://192.168.x.x:3000/"
 
@@ -24,7 +25,6 @@ object ApiClient {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -35,10 +35,12 @@ object ApiClient {
 
     val authApiService: AuthApiService = retrofit.create(AuthApiService::class.java)
     val knownPersonApiService: KnownPersonApiService = retrofit.create(KnownPersonApiService::class.java)
+    val photoApiService: PhotoApiService = retrofit.create(PhotoApiService::class.java)
     val alertApiService: AlertApiService = retrofit.create(AlertApiService::class.java)
     val callApiService: CallApiService = retrofit.create(CallApiService::class.java)
+    val reconnaissanceApiService: ReconnaissanceApiService = retrofit.create(ReconnaissanceApiService::class.java)
+    val batteryApiService: BatteryApiService = retrofit.create(BatteryApiService::class.java)
 
     val faceRecognitionApiService: FaceRecognitionApiService = retrofit.create(FaceRecognitionApiService::class.java)
     val detectionHistoryApiService: DetectionHistoryApiService = retrofit.create(DetectionHistoryApiService::class.java)
 }
-

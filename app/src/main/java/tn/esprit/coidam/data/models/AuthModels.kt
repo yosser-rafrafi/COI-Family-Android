@@ -17,7 +17,8 @@ data class UserResponse(
     val lastName: String? = null,
     val phoneNumber: String? = null,
     val userType: String? = null,
-    val linkedUserId: String? = null // ✅ AJOUTÉ
+    val linkedUserId: String? = null, // ✅ AJOUTÉ
+    val photoUrl: String? = null
 ) {
     fun getUserId(): String {
         return _id ?: id ?: ""

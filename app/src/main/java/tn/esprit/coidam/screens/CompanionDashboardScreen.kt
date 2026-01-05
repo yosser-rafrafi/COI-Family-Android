@@ -31,152 +31,161 @@ fun CompanionDashboardScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val tokenManager = remember { TokenManager(context) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showSideMenu by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFECF9FD))
-    ) {
-        // Header with gradient
-        Box(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF70CEE3),
-                            Color(0xFF129FA9)
+                .fillMaxSize()
+                .background(Color(0xFFECF9FD))
+        ) {
+            // Header with gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF70CEE3),
+                                Color(0xFF129FA9)
+                            )
                         )
                     )
-                )
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "CO-I Family",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Welcome, Companion",
-                            fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-
+                    .padding(20.dp)
+            ) {
+                Column {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Notification icon + badge
-                        Box {
-                            IconButton(onClick = { /* Navigate to notifications */ }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { showSideMenu = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = "Notifications",
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menu",
                                     tint = Color.White
                                 )
                             }
-                            Badge(
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            ) {
-                                Text("3", color = Color.White, fontSize = 10.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "CO-I Family",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Welcome, Companion",
+                                    fontSize = 16.sp,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        // Profile icon
-                        IconButton(onClick = { navController.navigate("profil") }) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profile",
-                                tint = Color.White
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Notification icon + badge
+                            Box {
+                                IconButton(onClick = { /* Navigate to notifications */ }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Notifications,
+                                        contentDescription = "Notifications",
+                                        tint = Color.White
+                                    )
+                                }
+                                Badge(
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Text("3", color = Color.White, fontSize = 10.sp)
+                                }
+                            }
                         }
+                    }
+                }
+            }
+
+            // Summary Statistics Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatItem(number = "5", label = "People", color = Color(0xFF70CEE3))
+                    StatItem(number = "3", label = "Alerts", color = Color(0xFFFFC107))
+                    StatItem(number = "12", label = "Photos", color = Color(0xFF4CAF50))
+                }
+            }
+
+            // Main Menu
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
+                Text(
+                    text = "Main Menu",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                val menuItems = listOf(
+
+                    // ✅ NOUVEAU : Bouton pour la reconnaissance faciale
+                  //  MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
+
+                    // ✅ NOUVEAU : Bouton pour l'historique des détections
+                    MenuItem("Detection History", Icons.Default.History, Color(0xFF4CAF50), "detection_history"),
+
+                    // declencher appel vd
+                    MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
+                    // Historique des appels
+                    MenuItem("Historique", Icons.Default.History, Color(0xFF9C27B0), "call_history"),
+                    MenuItem("Known People", Icons.Default.People, Color(0xFF70CEE3), "known_persons"),
+                    MenuItem("Alerts", Icons.Default.Notifications, Color(0xFFFFC107), "alerts"),
+                    MenuItem("Battery Levels", Icons.Default.BatteryFull, Color(0xFFFF9800), "battery_levels"),
+                    MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),
+                    MenuItem("History", Icons.Default.History, Color(0xFF4CAF50), "history"),
+                    MenuItem("Location", Icons.Default.LocationOn, Color(0xFFF44336), "location"),
+                    MenuItem("Guided Navigation", Icons.Default.Navigation, Color(0xFF2196F3), "guided_navigation"),
+                    MenuItem("Settings", Icons.Default.Settings, Color(0xFF757575), "settings"),
+                    MenuItem("Help", Icons.Default.Help, Color(0xFF9C27B0), "help")
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(menuItems) { item ->
+                        MenuCard(
+                            item = item,
+                            onClick = { navController.navigate(item.route) }
+                        )
                     }
                 }
             }
         }
 
-        // Summary Statistics Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem(number = "5", label = "People", color = Color(0xFF70CEE3))
-                StatItem(number = "3", label = "Alerts", color = Color(0xFFFFC107))
-                StatItem(number = "12", label = "Photos", color = Color(0xFF4CAF50))
-            }
-        }
-
-        // Main Menu
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        ) {
-            Text(
-                text = "Main Menu",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            val menuItems = listOf(
-
-                // ✅ NOUVEAU : Bouton pour la reconnaissance faciale
-              //  MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
-
-                // ✅ NOUVEAU : Bouton pour l'historique des détections
-                MenuItem("Detection History", Icons.Default.History, Color(0xFF4CAF50), "detection_history"),
-
-                // declencher appel vd
-                MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
-                // Historique des appels
-                MenuItem("Historique", Icons.Default.History, Color(0xFF9C27B0), "call_history"),
-                MenuItem("Known People", Icons.Default.People, Color(0xFF70CEE3), "known_persons"),
-                MenuItem("Alerts", Icons.Default.Notifications, Color(0xFFFFC107), "alerts"),
-                MenuItem("Battery Levels", Icons.Default.BatteryFull, Color(0xFFFF9800), "battery_levels"),
-                MenuItem("Photos", Icons.Default.PhotoCamera, Color(0xFF9C27B0), "photos"),
-                MenuItem("History", Icons.Default.History, Color(0xFF4CAF50), "history"),
-                MenuItem("Location", Icons.Default.LocationOn, Color(0xFFF44336), "location"),
-                MenuItem("Guided Navigation", Icons.Default.Navigation, Color(0xFF2196F3), "guided_navigation"),
-                MenuItem("Settings", Icons.Default.Settings, Color(0xFF757575), "settings"),
-                MenuItem("Help", Icons.Default.Help, Color(0xFF9C27B0), "help")
-            )
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(menuItems) { item ->
-                    MenuCard(
-                        item = item,
-                        onClick = { navController.navigate(item.route) }
-                    )
-                }
-            }
-        }
+        // Side Menu Overlay
+        SideMenuView(
+            isShowing = showSideMenu,
+            onDismiss = { showSideMenu = false },
+            navController = navController
+        )
     }
 
     // ✅ LOGOUT DIALOG

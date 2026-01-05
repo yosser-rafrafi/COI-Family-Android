@@ -56,6 +56,7 @@ fun BlindDashboardScreen(navController: NavController) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isListening by remember { mutableStateOf(false) }
     var showWelcomeDialog by remember { mutableStateOf(true) }
+    var showSideMenu by remember { mutableStateOf(false) }
 
     // ✅ Permissions
     val permissionsState = rememberMultiplePermissionsState(
@@ -170,218 +171,225 @@ fun BlindDashboardScreen(navController: NavController) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFECF9FD))
-    ) {
-        // Header avec gradient
-        Box(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF70CEE3),
-                            Color(0xFF129FA9)
+                .fillMaxSize()
+                .background(Color(0xFFECF9FD))
+        ) {
+            // Header avec gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF70CEE3),
+                                Color(0xFF129FA9)
+                            )
                         )
                     )
-                )
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "CO-I Family",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-
-                        // ✅ Indicateur de connexion
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 4.dp)
-                        ) {
-                            // État WebSocket
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(
-                                        color = when (connectionState) {
-                                            ConnectionState.CONNECTED -> Color(0xFF4CAF50)
-                                            ConnectionState.CONNECTING -> Color(0xFFFFC107)
-                                            else -> Color(0xFFF44336)
-                                        },
-                                        shape = CircleShape
-                                    )
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // État d'écoute
-                            if (isListening) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = "Listening",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "En écoute...",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
+                    .padding(20.dp)
+            ) {
+                Column {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // ✅ Bouton micro (toggle)
-                        FloatingActionButton(
-                            onClick = {
-                                if (isListening) {
-                                    voiceService.stopListening()
-                                    isListening = false
-                                    voiceService.speak("Écoute désactivée")
-                                } else {
-                                    voiceService.startListening()
-                                    isListening = true
-                                    voiceService.speak("Écoute activée")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { showSideMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menu",
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "CO-I Family",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+
+                                // ✅ Indicateur de connexion
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    // État WebSocket
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(
+                                                color = when (connectionState) {
+                                                    ConnectionState.CONNECTED -> Color(0xFF4CAF50)
+                                                    ConnectionState.CONNECTING -> Color(0xFFFFC107)
+                                                    else -> Color(0xFFF44336)
+                                                },
+                                                shape = CircleShape
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    // État d'écoute
+                                    if (isListening) {
+                                        Icon(
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = "Listening",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "En écoute...",
+                                            fontSize = 12.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
-                            },
-                            containerColor = if (isListening) Color(0xFF4CAF50) else Color.White,
-                            modifier = Modifier.size(50.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicOff,
-                                contentDescription = if (isListening) "Stop Listening" else "Start Listening",
-                                tint = if (isListening) Color.White else Color(0xFF70CEE3)
-                            )
+                            }
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        // Bouton aide
-                        IconButton(
-                            onClick = {
-                                wsClient.requestHelp()
-                            }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Help,
-                                contentDescription = "Help",
-                                tint = Color.White
-                            )
-                        }
-
-                        // Bouton déconnexion
-                        IconButton(
-                            onClick = {
-                                showLogoutDialog = true
+                            // ✅ Bouton micro (toggle)
+                            FloatingActionButton(
+                                onClick = {
+                                    if (isListening) {
+                                        voiceService.stopListening()
+                                        isListening = false
+                                        voiceService.speak("Écoute désactivée")
+                                    } else {
+                                        voiceService.startListening()
+                                        isListening = true
+                                        voiceService.speak("Écoute activée")
+                                    }
+                                },
+                                containerColor = if (isListening) Color(0xFF4CAF50) else Color.White,
+                                modifier = Modifier.size(50.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicOff,
+                                    contentDescription = if (isListening) "Stop Listening" else "Start Listening",
+                                    tint = if (isListening) Color.White else Color(0xFF70CEE3)
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ExitToApp,
-                                contentDescription = "Logout",
-                                tint = Color.White
-                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Bouton aide
+                            IconButton(
+                                onClick = {
+                                    wsClient.requestHelp()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Help,
+                                    contentDescription = "Help",
+                                    tint = Color.White
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // ✅ Texte reconnu (debug)
-        if (recognizedText.isNotEmpty()) {
+            // ✅ Texte reconnu (debug)
+            if (recognizedText.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Dernière commande:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2)
+                        )
+                        Text(
+                            text = recognizedText,
+                            fontSize = 14.sp,
+                            color = Color(0xFF424242)
+                        )
+                    }
+                }
+            }
+
+            // Summary Statistics Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "Dernière commande:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Text(
-                        text = recognizedText,
-                        fontSize = 14.sp,
-                        color = Color(0xFF424242)
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatItem(number = "5", label = "People", color = Color(0xFF70CEE3))
+                    StatItem(number = "3", label = "Alerts", color = Color(0xFFFFC107))
+                    StatItem(number = "12", label = "Photos", color = Color(0xFF4CAF50))
                 }
             }
-        }
 
-        // Summary Statistics Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Row(
+            // Main Menu
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(horizontal = 20.dp)
             ) {
-                StatItem(number = "5", label = "People", color = Color(0xFF70CEE3))
-                StatItem(number = "3", label = "Alerts", color = Color(0xFFFFC107))
-                StatItem(number = "12", label = "Photos", color = Color(0xFF4CAF50))
-            }
-        }
+                Text(
+                    text = "Main Menu",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
 
-        // Main Menu
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        ) {
-            Text(
-                text = "Main Menu",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                val menuItems = listOf(
+                    MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
+                    MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
+                    MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
+                    MenuItem("Auto blind", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "auto_blind"),
+                    MenuItem("Blind Camera", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "blind_camera"),
+                )
 
-            val menuItems = listOf(
-                MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
-                MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
-                MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
-                MenuItem("Auto blind", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "auto_blind"),
-            )
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(menuItems) { item ->
-                    MenuCard(
-                        item = item,
-                        onClick = {
-                            voiceService.speak(item.title)
-                            navController.navigate(item.route)
-                        }
-                    )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(menuItems) { item ->
+                        MenuCard(
+                            item = item,
+                            onClick = {
+                                voiceService.speak(item.title)
+                                navController.navigate(item.route)
+                            }
+                        )
+                    }
                 }
             }
         }
+
+        // Side Menu Overlay
+        SideMenuView(
+            isShowing = showSideMenu,
+            onDismiss = { showSideMenu = false },
+            navController = navController
+        )
     }
 
     // ✅ Dialog de bienvenue
@@ -452,9 +460,6 @@ fun BlindDashboardScreen(navController: NavController) {
         )
     }
 }
-
-
-
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

@@ -283,3 +283,4 @@ fun BatteryReportCard(report: Battery) {
         }
     }
 }
+
