@@ -4,6 +4,7 @@ package tn.esprit.coidam.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -32,8 +34,11 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import tn.esprit.coidam.R
 import tn.esprit.coidam.data.repository.AuthRepository
+import tn.esprit.coidam.services.BatteryMonitorService
 import android.content.Context
 import androidx.compose.runtime.LaunchedEffect
+import java.text.SimpleDateFormat
+import java.util.*
 
 data class UserProfile(
     val email: String = "",
@@ -79,6 +84,14 @@ fun ProfilScreen(navController: NavController) {
 
     fun logout() {
         scope.launch {
+            // Stop battery monitoring service
+            try {
+                val intent = android.content.Intent(context, tn.esprit.coidam.services.BatteryMonitorService::class.java)
+                context.stopService(intent)
+            } catch (e: Exception) {
+                // Ignore if service wasn't running
+            }
+
             authRepository.logout()
             navController.navigate("login") {
                 popUpTo(0) { inclusive = true }
@@ -86,46 +99,23 @@ fun ProfilScreen(navController: NavController) {
         }
     }
 
+    // Light blue background with gradient
+    val lightBlueGradient = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFFE6F7FF),
+            Color(0xFFD0EFFF),
+            Color(0xFFB8E6FF)
+        )
+    )
+
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFECF9FD))
+        modifier = Modifier
+            .fillMaxSize()
+            .background(lightBlueGradient)
     ) {
-
-
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top App Bar
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Profile",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { navController.navigate("update_profile") }) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Profile",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF70CEE3)
-                )
-            )
-
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -138,117 +128,99 @@ fun ProfilScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(40.dp))
 
-                    // Profile Picture
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF70CEE3))
-                            .border(4.dp, Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile Picture",
-                            tint = Color.White,
-                            modifier = Modifier.size(60.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // User Name
-                    Text(
-                        text = "${userProfile?.firstName} ${userProfile?.lastName}",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // User Type Badge
+                    // Companion Badge
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = if (userProfile?.userType == "blind") Color(0xFFFF9800) else Color(0xFF4CAF50)
+                        color = Color(0xFF70CEE3)
                     ) {
                         Text(
-                            text = userProfile?.userType?.uppercase() ?: "COMPANION",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            text = "Companion",
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 14.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(30.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // Profile Info Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.9f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp)
-                        ) {
-                            Text(
-                                text = "Personal Information",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF70CEE3)
-                            )
+                    // Email Info Card
+                    ProfileInfoCard(
+                        icon = Icons.Default.Email,
+                        iconColor = Color(0xFF70CEE3),
+                        label = "Email",
+                        value = userProfile?.email ?: ""
+                    )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                            ProfileInfoItem(
-                                icon = Icons.Default.Email,
-                                label = "Email",
-                                value = userProfile?.email ?: ""
-                            )
+                    // Phone Info Card
+                    ProfileInfoCard(
+                        icon = Icons.Default.Phone,
+                        iconColor = Color(0xFF9E9E9E),
+                        label = "Téléphone",
+                        value = userProfile?.phoneNumber?.takeIf { it.isNotEmpty() } ?: "Non renseigné"
+                    )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                            ProfileInfoItem(
-                                icon = Icons.Default.Phone,
-                                label = "Phone Number",
-                                value = userProfile?.phoneNumber ?: ""
-                            )
+                    // Membership Date Card
+                    val membershipDate = "23 nov. 2025" // TODO: Get actual date from profile
+                    ProfileInfoCard(
+                        icon = Icons.Default.CalendarToday,
+                        iconColor = Color(0xFFFF9800),
+                        label = "Membre depuis",
+                        value = membershipDate
+                    )
 
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        }
-                    }
+                    // Modify Profile Action Card
+                    ProfileActionCard(
+                        icon = Icons.Default.Person,
+                        iconColor = Color(0xFF70CEE3),
+                        title = "Modifier le profil",
+                        subtitle = "Mettre à jour vos informations",
+                        onClick = { navController.navigate("update_profile") }
+                    )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Action Buttons
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.9f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
+                    // Change Password Action Card
+                    ProfileActionCard(
+                        icon = Icons.Default.Lock,
+                        iconColor = Color(0xFFFF9800),
+                        title = "Changer le mot de passe",
+                        subtitle = "Sécuriser votre compte",
+                        onClick = { navController.navigate("change_password") }
+                    )
 
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                            ProfileActionItem(
-                                icon = Icons.AutoMirrored.Filled.ExitToApp,
-                                label = "Logout",
-                                onClick = { showLogoutDialog = true },
-                                textColor = Color.Red
-                            )
-                        }
-                    }
+                    // Blind Profile Configuration Action Card
+                    ProfileActionCard(
+                        icon = Icons.Default.PersonAdd,
+                        iconColor = Color(0xFF70CEE3),
+                        title = "Configuration du profil aveugle",
+                        subtitle = "Gérer le visage et le PIN vocal",
+                        onClick = { navController.navigate("blind_profile_config") }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Logout Action Card
+                    ProfileActionCard(
+                        icon = Icons.AutoMirrored.Filled.ExitToApp,
+                        iconColor = Color(0xFFE53935),
+                        title = "Déconnexion",
+                        subtitle = "Se déconnecter de l'application",
+                        onClick = { showLogoutDialog = true }
+                    )
 
                     Spacer(modifier = Modifier.height(30.dp))
                 }
@@ -297,70 +269,120 @@ fun ProfilScreen(navController: NavController) {
 }
 
 @Composable
-fun ProfileInfoItem(
+fun ProfileInfoCard(
     icon: ImageVector,
+    iconColor: Color,
     label: String,
     value: String
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = Color(0xFF70CEE3),
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
-            Text(
-                text = value,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.DarkGray
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon in colored circle
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = iconColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = value,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Black
+                )
+            }
         }
     }
 }
 
 @Composable
-fun ProfileActionItem(
+fun ProfileActionCard(
     icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    textColor: Color = Color.DarkGray
+    iconColor: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
 ) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = textColor,
-                modifier = Modifier.size(24.dp)
-            )
+            // Icon in colored circle
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = iconColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = label,
-                fontSize = 16.sp,
-                color = textColor,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+            }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Arrow",
-                tint = Color.Gray
+                tint = Color.Gray,
+                modifier = Modifier.size(24.dp)
             )
         }
     }

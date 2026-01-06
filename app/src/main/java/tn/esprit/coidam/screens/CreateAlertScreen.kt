@@ -396,10 +396,10 @@ private fun sendAlert(
     onError: (String) -> Unit
 ) {
     scope.launch {
-        //val blindUserId = tokenManager.getUserIdSync()
-        val blindUserId = "691088c2b15ba40f375efed9"
-        // val companionId = tokenManager.getLinkedUserIdSync()
-        val companionId = "691088c2b15ba40f375efed7"
+        val blindUserId = tokenManager.getUserIdSync()
+        //val blindUserId = "691088c2b15ba40f375efed9"
+         val companionId = tokenManager.getLinkedUserIdSync()
+        //val companionId = "691088c2b15ba40f375efed7"
 
         if (blindUserId.isNullOrEmpty()) {
             onError("Utilisateur non connecté")
@@ -407,10 +407,10 @@ private fun sendAlert(
         }
 
 
-        /*if (companionId.isNullOrEmpty()) {
+        if (companionId.isNullOrEmpty()) {
             onError("Aucun accompagnant lié à ce compte. Veuillez vous reconnecter.")
             return@launch
-        }*/
+        }
 
         onLoading(true)
 

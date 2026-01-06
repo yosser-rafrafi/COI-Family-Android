@@ -75,8 +75,17 @@ fun SplashScreen(navController: NavController) {
                 !userType.isNullOrEmpty()
 
         if (isLoggedIn) {
-            // ✅ UTILISATEUR DÉJÀ CONNECTÉ → Dashboard
-            navController.navigate("blind_dashboard") {
+            // ✅ UTILISATEUR DÉJÀ CONNECTÉ → Navigate to appropriate dashboard
+            val destination = when (userType) {
+                "companion" -> "companion_dashboard"
+                "blind" -> "blind_dashboard"
+                else -> {
+                    // Invalid user type, clear session and go to login
+                    tokenManager.clear()
+                    "login"
+                }
+            }
+            navController.navigate(destination) {
                 popUpTo("splash") { inclusive = true }
             }
         } else {

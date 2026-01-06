@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -110,37 +111,40 @@ fun UpdateProfilScreen(navController: NavController) {
             }
         }
     }
+    // Light blue gradient background
+    val lightBlueGradient = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFFE6F7FF),
+            Color(0xFFD0EFFF),
+            Color(0xFFB8E6FF)
+        )
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFECF9FD))
+            .background(lightBlueGradient)
     ) {
-
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top App Bar
-            TopAppBar(
-                title = {
+            // Close button in top right
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { navController.navigateUp() }
+                ) {
                     Text(
-                        text = "Edit Profile",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        text = "Fermer",
+                        color = Color(0xFF9E9E9E),
+                        fontSize = 16.sp
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF70CEE3)
-                )
-            )
+                }
+            }
 
             if (isLoading) {
                 Box(
@@ -154,86 +158,66 @@ fun UpdateProfilScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Spacer(modifier = Modifier.height(20.dp))
-
-                    // Profile Picture with Edit Icon
-                    Box(
-                        contentAlignment = Alignment.BottomEnd
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF70CEE3))
-                                .border(4.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profile Picture",
-                                tint = Color.White,
-                                modifier = Modifier.size(60.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { /* TODO: Change profile picture */ },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF70CEE3), CircleShape)
-                                .border(2.dp, Color.White, CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Camera,
-                                contentDescription = "Change Picture",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(30.dp))
 
                     // Form Card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.9f)
-                        )
+                            containerColor = Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(24.dp)
                         ) {
+                            // Title
                             Text(
-                                text = "Personal Information",
-                                fontSize = 18.sp,
+                                text = "Modifier le profil",
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF70CEE3)
+                                color = Color(0xFF333333)
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Subtitle
+                            Text(
+                                text = "Mettez à jour vos informations personnelles",
+                                fontSize = 14.sp,
+                                color = Color(0xFF9E9E9E)
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
 
                             // First Name
                             OutlinedTextField(
                                 value = firstName,
                                 onValueChange = { firstName = it },
-                                label = { Text("First Name *") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "First Name"
-                                    )
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "First Name",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF9E9E9E)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Prénom")
+                                    }
                                 },
+                                placeholder = { Text("Entrez votre prénom") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF70CEE3),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
                                     focusedLabelColor = Color(0xFF70CEE3),
-                                    focusedLeadingIconColor = Color(0xFF70CEE3)
+                                    unfocusedLabelColor = Color(0xFF9E9E9E)
                                 )
                             )
 
@@ -243,19 +227,59 @@ fun UpdateProfilScreen(navController: NavController) {
                             OutlinedTextField(
                                 value = lastName,
                                 onValueChange = { lastName = it },
-                                label = { Text("Last Name *") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Last Name"
-                                    )
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Last Name",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF9E9E9E)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Nom")
+                                    }
                                 },
+                                placeholder = { Text("Entrez votre nom") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF70CEE3),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
                                     focusedLabelColor = Color(0xFF70CEE3),
-                                    focusedLeadingIconColor = Color(0xFF70CEE3)
+                                    unfocusedLabelColor = Color(0xFF9E9E9E)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Email
+                            OutlinedTextField(
+                                value = email,
+                                onValueChange = { email = it },
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Email,
+                                            contentDescription = "Email",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF9E9E9E)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Email")
+                                        Text(
+                                            text = " *",
+                                            color = Color(0xFFE53935)
+                                        )
+                                    }
+                                },
+                                placeholder = { Text("Entrez votre email") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF70CEE3),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                                    focusedLabelColor = Color(0xFF70CEE3),
+                                    unfocusedLabelColor = Color(0xFF9E9E9E)
                                 )
                             )
 
@@ -265,47 +289,30 @@ fun UpdateProfilScreen(navController: NavController) {
                             OutlinedTextField(
                                 value = phoneNumber,
                                 onValueChange = { phoneNumber = it },
-                                label = { Text("Phone Number *") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Phone,
-                                        contentDescription = "Phone"
-                                    )
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Phone,
+                                            contentDescription = "Phone",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF9E9E9E)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Téléphone")
+                                    }
                                 },
+                                placeholder = { Text("Ex: 28 190 800") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF70CEE3),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
                                     focusedLabelColor = Color(0xFF70CEE3),
-                                    focusedLeadingIconColor = Color(0xFF70CEE3)
+                                    unfocusedLabelColor = Color(0xFF9E9E9E)
                                 )
                             )
 
-                            Spacer(modifier = Modifier.height(16.dp))
-
-
-
-                            // Email
-                            OutlinedTextField(
-                                value = email,
-                                onValueChange = { email = it },
-                                label = { Text("Email *") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Email,
-                                        contentDescription = "Email"
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF70CEE3),
-                                    focusedLabelColor = Color(0xFF70CEE3),
-                                    focusedLeadingIconColor = Color(0xFF70CEE3)
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(30.dp))
+                            Spacer(modifier = Modifier.height(32.dp))
 
                             // Update Button
                             Button(
@@ -329,14 +336,16 @@ fun UpdateProfilScreen(navController: NavController) {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Save,
-                                            contentDescription = "Save"
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Update",
+                                            tint = Color.White
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Save Changes",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "Mettre à jour",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
                                         )
                                     }
                                 }
