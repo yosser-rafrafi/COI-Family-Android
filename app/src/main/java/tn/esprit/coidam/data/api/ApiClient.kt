@@ -40,5 +40,10 @@ object ApiClient {
 
     val faceRecognitionApiService: FaceRecognitionApiService = retrofit.create(FaceRecognitionApiService::class.java)
     val detectionHistoryApiService: DetectionHistoryApiService = retrofit.create(DetectionHistoryApiService::class.java)
+    
+    // ✅ Ajout des services manquants
+    val batteryApiService: BatteryApiService = retrofit.create(BatteryApiService::class.java)
+    val photoApiService: PhotoApiService = retrofit.create(PhotoApiService::class.java)
+    val reconnaissanceApiService: ReconnaissanceApiService = retrofit.create(ReconnaissanceApiService::class.java)
 }
 

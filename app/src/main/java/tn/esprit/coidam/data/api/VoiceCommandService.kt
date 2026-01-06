@@ -10,16 +10,13 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import java.util.*
 
-/**
- * Service Android natif pour:
- * - Speech Recognition (Speech-to-Text)
- * - Text-to-Speech (TTS)
- *
- * Ce service transcrit LOCALEMENT sur Android
- * Le WebSocketClient peut ensuite envoyer le texte au serveur
- */
 class VoiceCommandService(private val context: Context) {
 
     private var speechRecognizer: SpeechRecognizer? = null
@@ -34,6 +31,8 @@ class VoiceCommandService(private val context: Context) {
 
     private var onCommandRecognized: ((String) -> Unit)? = null
 
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     companion object {
         private const val TAG = "VoiceCommandService"
     }
@@ -43,38 +42,32 @@ class VoiceCommandService(private val context: Context) {
         initializeSpeechRecognizer()
     }
 
-    /**
-     * ✅ Initialiser Text-to-Speech
-     */
     private fun initializeTTS() {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.language = Locale.FRENCH
                 _isReady.value = true
-                Log.d(TAG, "TTS initialized successfully")
+                Log.d(TAG, "✅ TTS initialized successfully")
             } else {
-                Log.e(TAG, "TTS initialization failed")
+                Log.e(TAG, "❌ TTS initialization failed")
             }
         }
     }
 
-    /**
-     * ✅ Initialiser Speech Recognition
-     */
     private fun initializeSpeechRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            Log.e(TAG, "Speech recognition not available")
+            Log.e(TAG, "❌ Speech recognition not available")
             return
         }
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                Log.d(TAG, "Ready for speech")
+                Log.d(TAG, "🎤 Ready for speech")
             }
 
             override fun onBeginningOfSpeech() {
-                Log.d(TAG, "Speech started")
+                Log.d(TAG, "🗣️ Speech started")
             }
 
             override fun onRmsChanged(rmsdB: Float) {}
@@ -82,37 +75,72 @@ class VoiceCommandService(private val context: Context) {
             override fun onBufferReceived(buffer: ByteArray?) {}
 
             override fun onEndOfSpeech() {
-                Log.d(TAG, "Speech ended")
+                Log.d(TAG, "🔇 Speech ended")
                 isListening = false
             }
 
             override fun onError(error: Int) {
-                Log.e(TAG, "Speech recognition error: $error")
-                isListening = false
-
                 val errorMessage = when (error) {
                     SpeechRecognizer.ERROR_AUDIO -> "Erreur audio"
                     SpeechRecognizer.ERROR_CLIENT -> "Erreur client"
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permissions insuffisantes"
                     SpeechRecognizer.ERROR_NETWORK -> "Erreur réseau"
                     SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Délai réseau dépassé"
-                    SpeechRecognizer.ERROR_NO_MATCH -> "Aucune correspondance"
+                    SpeechRecognizer.ERROR_NO_MATCH -> {
+                        Log.d(TAG, "⚠️ No speech detected (silence)")
+                        coroutineScope.launch {
+                            delay(500)
+                            if (!isListening) {
+                                startListening()
+                            }
+                        }
+                        return
+                    }
                     SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Reconnaissance occupée"
                     SpeechRecognizer.ERROR_SERVER -> "Erreur serveur"
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Délai d'attente dépassé"
-                    else -> "Erreur inconnue"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                        Log.d(TAG, "⚠️ Speech timeout (no speech)")
+                        coroutineScope.launch {
+                            delay(500)
+                            if (!isListening) {
+                                startListening()
+                            }
+                        }
+                        return
+                    }
+                    else -> "Erreur inconnue ($error)"
                 }
 
-                speak(errorMessage)
+                Log.e(TAG, "❌ Speech recognition error: $errorMessage")
+                isListening = false
+
+                coroutineScope.launch {
+                    delay(1000)
+                    if (!isListening) {
+                        startListening()
+                    }
+                }
             }
 
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
                     val text = matches[0]
-                    Log.d(TAG, "Recognized: $text")
-                    _recognizedText.value = text
-                    onCommandRecognized?.invoke(text)
+                    Log.d(TAG, "✅ Recognized: $text")
+
+                    val filteredText = filterFalsePositives(text)
+                    if (filteredText != null) {
+                        _recognizedText.value = filteredText
+                        onCommandRecognized?.invoke(filteredText)
+                    } else {
+                        Log.d(TAG, "⚠️ Filtered out false positive: $text")
+                        coroutineScope.launch {
+                            delay(500)
+                            if (!isListening) {
+                                startListening()
+                            }
+                        }
+                    }
                 }
                 isListening = false
             }
@@ -120,7 +148,7 @@ class VoiceCommandService(private val context: Context) {
             override fun onPartialResults(partialResults: Bundle?) {
                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
-                    Log.d(TAG, "Partial: ${matches[0]}")
+                    Log.d(TAG, "📝 Partial: ${matches[0]}")
                 }
             }
 
@@ -128,12 +156,9 @@ class VoiceCommandService(private val context: Context) {
         })
     }
 
-    /**
-     * ✅ Démarrer l'écoute
-     */
     fun startListening() {
         if (isListening) {
-            Log.w(TAG, "Already listening")
+            Log.w(TAG, "⚠️ Already listening")
             return
         }
 
@@ -147,61 +172,109 @@ class VoiceCommandService(private val context: Context) {
         try {
             speechRecognizer?.startListening(intent)
             isListening = true
-            Log.d(TAG, "Started listening")
+            Log.d(TAG, "🎤 Started listening")
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting listening", e)
-            speak("Erreur lors du démarrage de l'écoute")
+            Log.e(TAG, "❌ Error starting listening", e)
         }
     }
 
-    /**
-     * ✅ Arrêter l'écoute
-     */
     fun stopListening() {
         if (isListening) {
             speechRecognizer?.stopListening()
             isListening = false
-            Log.d(TAG, "Stopped listening")
+            Log.d(TAG, "🔇 Stopped listening")
         }
     }
 
-    /**
-     * ✅ Parler (Text-to-Speech)
-     */
     fun speak(text: String, onComplete: (() -> Unit)? = null) {
+        val wasListening = isListening
+        if (wasListening) {
+            stopListening()
+        }
+
+        Log.d(TAG, "🔊 Speaking: $text")
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "utteranceId")
 
         textToSpeech?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                Log.d(TAG, "TTS started: $text")
+                Log.d(TAG, "🗣️ TTS started")
             }
 
             override fun onDone(utteranceId: String?) {
-                Log.d(TAG, "TTS completed: $text")
+                Log.d(TAG, "✅ TTS completed")
                 onComplete?.invoke()
+
+                if (wasListening) {
+                    coroutineScope.launch {
+                        delay(800) // Délai plus long pour éviter auto-détection
+                        if (!isListening) {
+                            startListening()
+                        }
+                    }
+                }
             }
 
             override fun onError(utteranceId: String?) {
-                Log.e(TAG, "TTS error")
+                Log.e(TAG, "❌ TTS error")
+                if (wasListening) {
+                    coroutineScope.launch {
+                        delay(500)
+                        if (!isListening) {
+                            startListening()
+                        }
+                    }
+                }
             }
         })
     }
 
-    /**
-     * ✅ Définir le callback pour les commandes
-     */
+    private fun filterFalsePositives(text: String): String? {
+        val lower = text.lowercase()
+
+        val falsePositives = listOf(
+            "micro activé",
+            "micro désactivé",
+            "mode automatique",
+            "caméra et micro",
+            "je prends la photo",
+            "photo enregistrée",
+            "reconnaissance terminée",
+            "détection terminée",
+            "prise de photo"
+        )
+
+        for (fp in falsePositives) {
+            if (lower.contains(fp)) {
+                return null
+            }
+        }
+
+        val cleaned = text.trim()
+        if (cleaned.length < 3) {
+            return null
+        }
+
+        return cleaned
+    }
+
     fun setOnCommandRecognized(callback: (String) -> Unit) {
         onCommandRecognized = callback
     }
 
-    /**
-     * ✅ Nettoyer les ressources
-     */
+    fun restartListeningAfterDelay(delayMs: Long = 1000) {
+        coroutineScope.launch {
+            delay(delayMs)
+            if (!isListening) {
+                startListening()
+            }
+        }
+    }
+
     fun cleanup() {
         stopListening()
         speechRecognizer?.destroy()
         textToSpeech?.stop()
         textToSpeech?.shutdown()
-        Log.d(TAG, "Cleaned up resources")
+        Log.d(TAG, "✅ Cleaned up resources")
     }
 }

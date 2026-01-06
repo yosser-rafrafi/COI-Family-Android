@@ -88,7 +88,7 @@ fun BlindDashboardScreen(navController: NavController) {
                 "open-camera" -> {
                     voiceService.speak(instruction.text)
                     delay(1500)
-                    navController.navigate("face_recognition")
+                    navController.navigate("auto_blind")
                 }
             }
 
@@ -117,7 +117,7 @@ fun BlindDashboardScreen(navController: NavController) {
             when (response.action) {
                 "open-camera" -> {
                     delay(1500)
-                    navController.navigate("face_recognition")
+                    navController.navigate("auto_blind")
                 }
                 "send-alert" -> {
                     delay(1000)
@@ -360,9 +360,8 @@ fun BlindDashboardScreen(navController: NavController) {
                 val menuItems = listOf(
                     MenuItem("Send Alert", Icons.Default.Notifications, Color(0xFFFFC107), "send_alert"),
                     MenuItem("Appel Vidéo", Icons.Default.Videocam, Color(0xFF4CAF50), "start_call"),
-                    MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "face_recognition"),
+                    MenuItem("Face Recognition", Icons.Default.Face, Color(0xFF9C27B0), "auto_blind"), // ✅ Changed to auto_blind
                     MenuItem("Auto blind", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "auto_blind"),
-                    MenuItem("Blind Camera", Icons.Default.RemoveRedEye, Color(0xFF9C27B0), "blind_camera"),
                 )
 
                 LazyVerticalGrid(

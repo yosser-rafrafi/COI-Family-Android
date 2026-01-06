@@ -326,9 +326,7 @@ fun AppNavHost(navController: NavHostController, isGoogleLoading: Boolean) {
             PhotosListScreen(navController)
         }
 
-        composable("blind_camera") {
-            BlindCameraScreen(navController)
-        }
+
         composable("auto_blind") {
             AutoBlindScreen(navController)
         }

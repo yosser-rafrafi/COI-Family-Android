@@ -1,27 +1,22 @@
 package tn.esprit.coidam.data.api
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.util.Base64
 import android.util.Log
+import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONObject
 import tn.esprit.coidam.data.local.TokenManager
-import java.net.URISyntaxException
-import android.util.Base64
 import tn.esprit.coidam.data.models.Enums.ConnectionState
 import tn.esprit.coidam.data.models.Voice.VoiceInstruction
 import tn.esprit.coidam.data.models.Voice.VoiceResponse
-import android.graphics.Bitmap
 import java.io.ByteArrayOutputStream
+import java.net.URISyntaxException
 
-/**
- * Client WebSocket pour les commandes vocales (SINGLETON)
- * Supporte 2 modes:
- * 1. Envoyer du texte transcrit localement (Android Speech Recognition)
- * 2. Envoyer de l'audio pour transcription serveur (Whisper)
- */
 class VoiceWebSocketClient private constructor(private val context: Context) {
 
     private var socket: Socket? = null
@@ -29,7 +24,7 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState
-    private var isConnecting = false  // ✅ Flag pour éviter connexions multiples
+    private var isConnecting = false
 
     private val _voiceInstruction = MutableStateFlow<VoiceInstruction?>(null)
     val voiceInstruction: StateFlow<VoiceInstruction?> = _voiceInstruction
@@ -41,13 +36,10 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         private const val TAG = "VoiceWebSocketClient"
         private const val SERVER_URL = ApiClient.BASE_URL
         private const val NAMESPACE = "/voice-commands"
-        
+
         @Volatile
         private var INSTANCE: VoiceWebSocketClient? = null
-        
-        /**
-         * Get singleton instance of VoiceWebSocketClient
-         */
+
         fun getInstance(context: Context): VoiceWebSocketClient {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: VoiceWebSocketClient(context.applicationContext).also {
@@ -55,8 +47,7 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
                 }
             }
         }
-        
-        // ✅ CORRECTION: Nettoyer l'instance au logout
+
         fun resetInstance() {
             synchronized(this) {
                 INSTANCE?.disconnect()
@@ -65,33 +56,22 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         }
     }
 
-
-
-    /**
-     * Check if we should attempt to connect/reconnect
-     */
     fun shouldReconnect(): Boolean {
         return socket == null || socket?.connected() == false
     }
 
-    /**
-     * ✅ Connexion au WebSocket avec vérification d'état robuste
-     */
     suspend fun connect() {
-        // ✅ Check 1: Is there an existing connected socket?
         if (socket?.connected() == true) {
             Log.d(TAG, "⚠️ Already connected, reusing existing socket")
             _connectionState.value = ConnectionState.CONNECTED
             return
         }
-        
-        // ✅ Check 2: Is there a connection already in progress?
+
         if (isConnecting) {
             Log.d(TAG, "⚠️ Connection already in progress")
             return
         }
-        
-        // ✅ Check 3: Clean up any existing socket before creating new one
+
         if (socket != null) {
             Log.d(TAG, "🧹 Cleaning up existing disconnected socket")
             socket?.off()
@@ -100,23 +80,24 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         }
 
         try {
-            isConnecting = true  // ✅ Set flag
+            isConnecting = true
             _connectionState.value = ConnectionState.CONNECTING
 
             val userId = tokenManager.getUserIdSync()
             if (userId == null || userId.isEmpty()) {
                 Log.e(TAG, "❌ No userId available")
                 _connectionState.value = ConnectionState.DISCONNECTED
+                isConnecting = false
                 return
             }
 
             val linkedUserId = tokenManager.getLinkedUserIdSync()
 
             val options = IO.Options().apply {
-                query = "userId=$userId&userType=blind" + 
+                query = "userId=$userId&userType=blind" +
                         if (linkedUserId != null) "&linkedUserId=$linkedUserId" else ""
                 reconnection = true
-                reconnectionAttempts = 5  // ✅ Finite attempts, not infinite
+                reconnectionAttempts = 5
                 reconnectionDelay = 1000
                 reconnectionDelayMax = 5000
                 timeout = 10000
@@ -133,28 +114,25 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         } catch (e: URISyntaxException) {
             Log.e(TAG, "❌ Invalid URL", e)
             _connectionState.value = ConnectionState.ERROR
-            isConnecting = false  // ✅ Clear flag
+            isConnecting = false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Connection error", e)
             _connectionState.value = ConnectionState.ERROR
-            isConnecting = false  // ✅ Clear flag
+            isConnecting = false
         }
     }
 
-    /**
-     * ✅ Configurer les listeners Socket.IO
-     */
     private fun setupSocketListeners() {
         socket?.apply {
             on(Socket.EVENT_CONNECT) {
-                Log.d(TAG, "✅ Connected to server")
+                Log.d(TAG, "✅ Connected to server - Socket ID: ${socket?.id()}")
                 _connectionState.value = ConnectionState.CONNECTED
-                isConnecting = false  // ✅ Clear flag
+                isConnecting = false
             }
 
             on("connected") { args ->
                 val data = args[0] as JSONObject
-                Log.d(TAG, "Server confirmation: ${data.getString("message")}")
+                Log.d(TAG, "✅ Server confirmation: ${data.getString("message")}")
             }
 
             on("voice-instruction") { args ->
@@ -200,24 +178,20 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
             on(Socket.EVENT_DISCONNECT) {
                 Log.d(TAG, "❌ Disconnected from server")
                 _connectionState.value = ConnectionState.DISCONNECTED
-                isConnecting = false  // ✅ Clear flag
+                isConnecting = false
             }
 
             on(Socket.EVENT_CONNECT_ERROR) { args ->
-                Log.e(TAG, "Connection error: ${args[0]}")
+                Log.e(TAG, "❌ Connection error: ${args[0]}")
                 _connectionState.value = ConnectionState.DISCONNECTED
-                isConnecting = false  // ✅ Clear flag
+                isConnecting = false
             }
         }
     }
 
-    /**
-     * ✅ MODE 1: Envoyer une commande vocale TEXTE (déjà transcrite)
-     * Utiliser ceci si vous transcrivez localement avec Android Speech Recognition
-     */
     fun sendVoiceCommand(command: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot send command.")
+            Log.w(TAG, "⚠️ Not connected. Cannot send command. State: ${_connectionState.value}")
             return
         }
 
@@ -230,17 +204,12 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         socket?.emit("voice-command", data)
     }
 
-    /**
-     * ✅ MODE 2: Envoyer un fichier AUDIO pour transcription serveur
-     * Utiliser ceci si vous voulez que le serveur Whisper transcrive
-     */
     fun sendVoiceCommandAudio(audioData: ByteArray, language: String = "fr") {
         if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot send audio.")
+            Log.w(TAG, "⚠️ Not connected. Cannot send audio.")
             return
         }
 
-        // Convertir en base64
         val audioBase64 = Base64.encodeToString(audioData, Base64.NO_WRAP)
 
         val data = JSONObject().apply {
@@ -253,12 +222,9 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         socket?.emit("voice-command-audio", data)
     }
 
-    /**
-     * ✅ Démarrer la reconnaissance faciale
-     */
     fun startFaceRecognition() {
         if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot start face recognition.")
+            Log.w(TAG, "⚠️ Not connected. Cannot start face recognition.")
             return
         }
 
@@ -266,12 +232,9 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         socket?.emit("start-face-recognition")
     }
 
-    /**
-     * ✅ Envoyer les résultats de reconnaissance faciale
-     */
     fun sendFaceRecognitionResult(result: Any) {
         if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot send result.")
+            Log.w(TAG, "⚠️ Not connected. Cannot send result.")
             return
         }
 
@@ -284,39 +247,83 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
     }
 
     /**
-     * ✅ Envoyer une photo pour traitement (analyse objets + sauvegarde)
+     * ✅ CORRECTION MAJEURE: Envoi de photo avec vérification robuste
      */
     fun sendPhotoForProcessing(bitmap: Bitmap) {
-        if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot send photo.")
+        // ✅ Vérifier PLUSIEURS fois l'état de connexion
+        val currentState = _connectionState.value
+        val isSocketConnected = socket?.connected() == true
+
+        Log.d(TAG, "📸 sendPhotoForProcessing called")
+        Log.d(TAG, "   - ConnectionState: $currentState")
+        Log.d(TAG, "   - Socket?.connected(): $isSocketConnected")
+        Log.d(TAG, "   - Socket ID: ${socket?.id()}")
+
+        if (currentState != ConnectionState.CONNECTED || !isSocketConnected) {
+            Log.e(TAG, "❌ CANNOT SEND PHOTO: Not connected!")
+            Log.e(TAG, "   - ConnectionState: $currentState")
+            Log.e(TAG, "   - Socket connected: $isSocketConnected")
             return
         }
 
         try {
-            // Compresser en JPEG
+            // ✅ Compression plus agressive pour réduire la taille
             val outputStream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream) // Qualité 70% pour réduire poids
+            val compressionQuality = 60 // Réduire de 70% à 60%
+
+            Log.d(TAG, "📸 Compressing bitmap (quality: $compressionQuality%)...")
+            val compressionSuccess = bitmap.compress(
+                Bitmap.CompressFormat.JPEG,
+                compressionQuality,
+                outputStream
+            )
+
+            if (!compressionSuccess) {
+                Log.e(TAG, "❌ Bitmap compression failed!")
+                return
+            }
+
             val imageBytes = outputStream.toByteArray()
             val imageBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
+
+            Log.d(TAG, "✅ Photo compressed successfully")
+            Log.d(TAG, "   - Original size: ${bitmap.byteCount} bytes")
+            Log.d(TAG, "   - Compressed size: ${imageBytes.size} bytes")
+            Log.d(TAG, "   - Base64 length: ${imageBase64.length}")
+            Log.d(TAG, "   - Compression ratio: ${String.format("%.1f", (imageBytes.size.toFloat() / bitmap.byteCount) * 100)}%")
 
             val data = JSONObject().apply {
                 put("imageBase64", imageBase64)
                 put("timestamp", System.currentTimeMillis().toString())
             }
 
-            Log.d(TAG, "📤 Sending photo for processing (${imageBytes.size} bytes)")
-            socket?.emit("process-photo", data)
+            // ✅ Vérifier UNE DERNIÈRE FOIS avant émission
+            if (socket?.connected() != true) {
+                Log.e(TAG, "❌ Socket disconnected just before emit!")
+                return
+            }
+
+            Log.d(TAG, "📤 Emitting 'process-photo' event...")
+
+            socket?.emit("process-photo", data, Ack { args ->
+                if (args.isNotEmpty() && args[0] != null) {
+                    Log.e(TAG, "❌ Server error on process-photo: ${args[0]}")
+                } else {
+                    Log.d(TAG, "✅ process-photo acknowledged by server")
+                }
+            })
+
+            Log.d(TAG, "✅ process-photo event emitted successfully")
+
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error sending photo: ${e.message}", e)
+            Log.e(TAG, "❌ Error in sendPhotoForProcessing: ${e.message}", e)
+            e.printStackTrace()
         }
     }
 
-    /**
-     * ✅ Demander l'aide
-     */
     fun requestHelp() {
         if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Not connected. Cannot request help.")
+            Log.w(TAG, "⚠️ Not connected. Cannot request help.")
             return
         }
 
@@ -324,24 +331,16 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
         socket?.emit("request-help")
     }
 
-    /**
-     * ✅ Déconnexion et nettoyage
-     */
     fun disconnect() {
         Log.d(TAG, "🔌 Disconnecting socket...")
-        
-        // Remove all event listeners first
+
         socket?.off()
-        
-        // Disconnect the socket
         socket?.disconnect()
-        
-        // Clear the reference
         socket = null
-        
-        // Update state
+
         _connectionState.value = ConnectionState.DISCONNECTED
-        
+        isConnecting = false
+
         Log.d(TAG, "✅ Socket disconnected and cleaned up")
     }
 }

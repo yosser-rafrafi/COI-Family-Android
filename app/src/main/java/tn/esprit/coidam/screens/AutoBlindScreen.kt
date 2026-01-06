@@ -8,6 +8,8 @@ import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
@@ -464,16 +466,26 @@ fun AutoBlindScreen(navController: NavController) {
                 }
                 else -> {
                     // Envoyer au serveur
+                    Log.d("AutoBlind", "📤 Sending voice command: $recognizedText")
                     wsClient.sendVoiceCommand(recognizedText)
+                    // ✅ Réinitialiser le texte reconnu pour éviter les traitements multiples
+                    // Le service redémarrera automatiquement l'écoute
                 }
             }
         }
     }
 
+    // ✅ Contrôleur capture
+    val captureController = remember { CaptureController() }
+
     // ✅ Gérer les réponses du serveur
     LaunchedEffect(voiceResponse) {
         voiceResponse?.let { response ->
-            response.speakText?.let { voiceService.speak(it) }
+            Log.d("AutoBlind", "📨 Voice response received: action=${response.action}, message=${response.message}")
+            
+            response.speakText?.let { 
+                voiceService.speak(it) 
+            }
 
             when (response.action) {
                 "navigate-back" -> {
@@ -481,14 +493,10 @@ fun AutoBlindScreen(navController: NavController) {
                     navController.popBackStack()
                 }
                 "capture-photo" -> {
-                    // ✅ Capture photo logic requested by backend
-                    Log.d("AutoBlind", "📸 Capture photo requested")
-                    // Wait briefly to ensure we have a fresh frame or just take current
-                    if (currentBitmap != null) {
-                       wsClient.sendPhotoForProcessing(currentBitmap!!)
-                    } else {
-                       voiceService.speak("Caméra non prête")
-                    }
+                    // ✅ Trigger High-Res Capture via Controller
+                    Log.d("AutoBlind", "📸 Capture photo requested (Action)")
+                    delay(500) // Petit délai pour que le TTS commence
+                    captureController.capturePhoto?.invoke()
                 }
             }
         }
@@ -524,11 +532,28 @@ fun AutoBlindScreen(navController: NavController) {
     Box(modifier = Modifier.fillMaxSize()) {
         // ✅ Caméra avec détection
         if (isCameraActive) {
-            CameraPreview(
+            SmartCameraPreview(
                 modifier = Modifier.fillMaxSize(),
-                onFrameCaptured = { bitmap ->
+                captureController = captureController,
+                onFrameAnalyzed = { bitmap ->
                     currentBitmap = bitmap
-                    onCameraFrame(bitmap)  // ✅ Machine à états
+                    onCameraFrame(bitmap) // Flux visage
+                },
+                onPhotoCaptured = { hdBitmap ->
+                    // Flux haute qualité pour YOLO
+                    Log.d("AutoBlind", "✅ HD Photo Captured. Size: ${hdBitmap.width}x${hdBitmap.height}. Sending to backend for object recognition...")
+                    
+                    // Vérifier la connexion WebSocket avant d'envoyer
+                    if (wsClient.connectionState.value == tn.esprit.coidam.data.models.Enums.ConnectionState.CONNECTED) {
+                        wsClient.sendPhotoForProcessing(hdBitmap)
+                    } else {
+                        Log.e("AutoBlind", "❌ Cannot send photo: WebSocket not connected (state: ${wsClient.connectionState.value})")
+                        voiceService.speak("Erreur: connexion au serveur perdue. Reconnexion...")
+                        // Tenter une reconnexion
+                        scope.launch {
+                            wsClient.connect()
+                        }
+                    }
                 }
             )
 
@@ -808,10 +833,17 @@ fun AutoBlindScreen(navController: NavController) {
 }
 
 
+// ✅ Contrôleur pour délencher la capture depuis le parent
+class CaptureController {
+    var capturePhoto: (() -> Unit)? = null
+}
+
 @Composable
-fun CameraPreview(
+fun SmartCameraPreview(
     modifier: Modifier = Modifier,
-    onFrameCaptured: (Bitmap) -> Unit
+    captureController: CaptureController,
+    onFrameAnalyzed: (Bitmap) -> Unit, // Pour le Visage (basse res)
+    onPhotoCaptured: (Bitmap) -> Unit // Pour YOLO (haute res)
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -827,47 +859,99 @@ fun CameraPreview(
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         val cameraProvider = cameraProviderFuture.get()
 
+        // 1. Preview
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
 
+        // 2. Image Analysis (Visage - Stream Realtime)
         val imageAnalyzer = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { analyzer ->
                 analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
-                    // Convertir ImageProxy en Bitmap
                     val bitmap = imageProxy.toBitmap()
-                    onFrameCaptured(bitmap)
+                    onFrameAnalyzed(bitmap)
                     imageProxy.close()
                 }
             }
 
+        // 3. Image Capture (YOLO - Haute Qualité)
+        val imageCapture = ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+
+        // Lier le contrôleur
+        captureController.capturePhoto = {
+            imageCapture.takePicture(
+                ContextCompat.getMainExecutor(context),
+                object : ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: ImageProxy) {
+                        val bitmap = image.toBitmap()
+                        onPhotoCaptured(bitmap)
+                        image.close() // Important!
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        Log.e("SmartCamera", "Capture failed: ${exception.message}", exception)
+                    }
+                }
+            )
+        }
+
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalyzer)
+        try {
+            cameraProvider.unbindAll()
+            // Bind les 3 cas d'utilisation ensemble
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner, 
+                cameraSelector, 
+                preview, 
+                imageAnalyzer, 
+                imageCapture
+            )
+        } catch (e: Exception) {
+            Log.e("SmartCamera", "Use case binding failed", e)
+        }
     }
 }
 
-// Extension helper
+// ✅ Extension helper - Handles both YUV (ImageAnalysis) and JPEG (ImageCapture)
 fun ImageProxy.toBitmap(): Bitmap {
-    val yBuffer = planes[0].buffer
-    val uBuffer = planes[1].buffer
-    val vBuffer = planes[2].buffer
+    return when (format) {
+        ImageFormat.JPEG -> {
+            // ImageCapture returns JPEG - decode directly
+            val buffer = planes[0].buffer
+            val bytes = ByteArray(buffer.remaining())
+            buffer.get(bytes)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
+        ImageFormat.YUV_420_888 -> {
+            // ImageAnalysis returns YUV - convert to NV21 then JPEG
+            val yBuffer = planes[0].buffer
+            val uBuffer = planes[1].buffer
+            val vBuffer = planes[2].buffer
 
-    val ySize = yBuffer.remaining()
-    val uSize = uBuffer.remaining()
-    val vSize = vBuffer.remaining()
+            val ySize = yBuffer.remaining()
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
 
-    val nv21 = ByteArray(ySize + uSize + vSize)
-    yBuffer.get(nv21, 0, ySize)
-    vBuffer.get(nv21, ySize, vSize)
-    uBuffer.get(nv21, ySize + vSize, uSize)
+            val nv21 = ByteArray(ySize + uSize + vSize)
+            yBuffer.get(nv21, 0, ySize)
+            vBuffer.get(nv21, ySize, vSize)
+            uBuffer.get(nv21, ySize + vSize, uSize)
 
-    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-    val out = ByteArrayOutputStream()
-    yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
-    val imageBytes = out.toByteArray()
-    return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+            val out = ByteArrayOutputStream()
+            yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
+            val imageBytes = out.toByteArray()
+            BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        }
+        else -> {
+            // Fallback for unknown formats
+            Log.e("ImageProxy", "Unsupported image format: $format")
+            throw IllegalArgumentException("Unsupported image format: $format")
+        }
+    }
 }
