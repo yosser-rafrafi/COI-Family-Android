@@ -37,6 +37,9 @@ fun SignupScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
@@ -54,7 +57,8 @@ fun SignupScreen(
     fun signUp() {
         scope.launch {
             when {
-                email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() -> {
+                email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() || 
+                firstName.isEmpty() || lastName.isEmpty() || phoneNumber.isEmpty() -> {
                     dialogMessage = "Please fill in all fields."
                     isSuccess = false
                     showDialog = true
@@ -76,7 +80,13 @@ fun SignupScreen(
                 }
                 else -> {
                     isLoading = true
-                    val result = authRepository.signUp(email.trim(), password)
+                    val result = authRepository.signUp(
+                        email.trim(), 
+                        password, 
+                        firstName.trim(), 
+                        lastName.trim(), 
+                        phoneNumber.trim()
+                    )
                     isLoading = false
 
                     result.onSuccess {
@@ -156,6 +166,30 @@ fun SignupScreen(
                         .padding(top = 40.dp)
                 ) {
                     CustomTextField(
+                        value = firstName,
+                        onValueChange = { firstName = it },
+                        placeholder = "First Name"
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    CustomTextField(
+                        value = lastName,
+                        onValueChange = { lastName = it },
+                        placeholder = "Last Name"
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    CustomTextField(
+                        value = phoneNumber,
+                        onValueChange = { phoneNumber = it },
+                        placeholder = "Phone Number"
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    CustomTextField(
                         value = email,
                         onValueChange = { email = it },
                         placeholder = "Email Address"
@@ -186,7 +220,8 @@ fun SignupScreen(
                         onClick = { signUp() },
                         enabled = !isLoading && !isGoogleLoading && email.isNotEmpty() && 
                                 password.isNotEmpty() && confirmPassword.isNotEmpty() &&
-                                password == confirmPassword,
+                                firstName.isNotEmpty() && lastName.isNotEmpty() &&
+                                phoneNumber.isNotEmpty() && password == confirmPassword,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(55.dp),

@@ -21,10 +21,13 @@ class AuthRepository(private val context: Context) {
 
     suspend fun signUp(
         email: String,
-        password: String
+        password: String,
+        firstName: String,
+        lastName: String,
+        phoneNumber: String
     ): Result<SignUpResponse> {
         return try {
-            val dto = SignUpDto(email, password, "companion")
+            val dto = SignUpDto(email, password, firstName, lastName, phoneNumber, "companion")
             val response = apiService.signUp(dto)
             
             if (response.isSuccessful && response.body() != null) {

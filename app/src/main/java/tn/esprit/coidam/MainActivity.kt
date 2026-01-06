@@ -191,7 +191,7 @@ class MainActivity : ComponentActivity() {
             Log.d("GoogleSignIn", "🧩 idToken récupéré : $idToken")
 
             idToken?.let { token ->
-                sendIdTokenToBackend(token, account.email)
+                sendIdTokenToBackend(token, account)
             }
 
         } catch (e: ApiException) {
@@ -203,7 +203,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun sendIdTokenToBackend(idToken: String, email: String?) {
+    private fun sendIdTokenToBackend(idToken: String, account: GoogleSignInAccount) {
         if (idToken.isEmpty()) {
             Log.e("GoogleSignIn", "🚨 idToken est vide")
             return
@@ -249,9 +249,7 @@ class MainActivity : ComponentActivity() {
             }.onFailure { e ->
                 if (e is AuthRepository.GoogleSignInException && e.statusCode == 404) {
                     Log.d("GoogleSignIn", "👤 Utilisateur non trouvé avec Google")
-                    email?.let { userEmail ->
-                        handleGoogleUserNotFound(userEmail, idToken, authRepository)
-                    }
+                    handleGoogleUserNotFound(account, idToken, authRepository)
                 } else {
                     Log.e("GoogleSignIn", "❌ Login backend erreur : ${e.message}")
                 }
@@ -259,11 +257,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleGoogleUserNotFound(email: String, idToken: String, authRepository: AuthRepository) {
+    private fun handleGoogleUserNotFound(account: GoogleSignInAccount, idToken: String, authRepository: AuthRepository) {
         lifecycleScope.launch {
+            val email = account.email ?: ""
+            val firstName = account.givenName ?: "Google"
+            val lastName = account.familyName ?: "User"
+            val phoneNumber = "00000000" // Placeholder phone for Google users
             val randomPassword = "Google${System.currentTimeMillis()}"
 
-            val signUpResult = authRepository.signUp(email, randomPassword)
+            val signUpResult = authRepository.signUp(email, randomPassword, firstName, lastName, phoneNumber)
             signUpResult.onSuccess {
                 Log.d("GoogleSignIn", "✅ Nouveau compte créé avec succès")
                 val signInResult = authRepository.signInWithGoogle(idToken)

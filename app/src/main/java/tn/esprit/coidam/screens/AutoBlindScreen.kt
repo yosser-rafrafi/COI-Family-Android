@@ -90,14 +90,14 @@ fun AutoBlindScreen(navController: NavController) {
     var detectionCount by remember { mutableIntStateOf(0) }
     var lastFacePosition by remember { mutableStateOf<android.graphics.RectF?>(null) }  // ✅ Tracker position du visage
     
-    // ✅ Configuration (ULTRA-OPTIMISÉ pour ML Kit intermittent)
-    val STABILITY_THRESHOLD_MS = 500L              // ✅ Réduit à 500ms pour déclenchement rapide
-    val DISAPPEAR_THRESHOLD_MS = 5000L             // 5s sans visage = reset
-    val RECOGNITION_COOLDOWN_MS = 3000L            // 3s entre deux reconnaissances
+    // ✅ Configuration (ULTRA-OPTIMISÉ pour réactivité maximale - utilisateur aveugle)
+    val STABILITY_THRESHOLD_MS = 300L              // ✅ Réduit à 300ms pour déclenchement ultra-rapide
+    val DISAPPEAR_THRESHOLD_MS = 2000L             // ✅ Réduit à 2s sans visage = reset rapide (pour changement de direction)
+    val RECOGNITION_COOLDOWN_MS = 1000L            // ✅ Réduit à 1s entre deux reconnaissances (réactivité maximale)
     val MIN_CONFIDENCE = 0.3f                      // Confiance minimum pour annoncer
     val MAX_RECOGNITION_ATTEMPTS = 3               // Maximum 3 captures
-    val FRAME_ANALYSIS_INTERVAL_MS = 300L          // 300ms entre analyses
-    val MAX_FRAMES_WITHOUT_FACE_BEFORE_RESET = 15  // ✅ Tolérance augmentée: 15 frames (~4.5s) pour ML Kit intermittent
+    val FRAME_ANALYSIS_INTERVAL_MS = 200L          // ✅ Réduit à 200ms entre analyses (plus réactif)
+    val MAX_FRAMES_WITHOUT_FACE_BEFORE_RESET = 10  // ✅ Réduit à 10 frames (~2s) pour reset rapide
     
     // ✅ ML Kit Face Detector
     val faceDetector = remember {
@@ -138,7 +138,7 @@ fun AutoBlindScreen(navController: NavController) {
         }
     }
     
-    // ✅ Vérifier si le visage a significativement changé de position
+    // ✅ Vérifier si le visage a significativement changé de position (plus sensible pour changement de direction)
     fun hasFacePositionChanged(oldRect: android.graphics.RectF?, newRect: android.graphics.RectF?): Boolean {
         if (oldRect == null || newRect == null) return true
         
@@ -151,13 +151,13 @@ fun AutoBlindScreen(navController: NavController) {
         val deltaX = kotlin.math.abs(newCenterX - oldCenterX)
         val deltaY = kotlin.math.abs(newCenterY - oldCenterY)
         
-        // Utiliser la largeur du visage comme référence (30% de déplacement)
+        // ✅ Utiliser la largeur du visage comme référence (20% de déplacement - plus sensible)
         val faceWidth = oldRect.right - oldRect.left
-        val threshold = faceWidth * 0.3f
+        val threshold = faceWidth * 0.2f  // Réduit de 30% à 20% pour détecter plus rapidement
         
         val changed = deltaX > threshold || deltaY > threshold
         if (changed) {
-            Log.d("AutoBlind", "📍 Face moved: deltaX=$deltaX, deltaY=$deltaY, threshold=$threshold")
+            Log.d("AutoBlind", "📍 Face moved significantly: deltaX=$deltaX, deltaY=$deltaY, threshold=$threshold")
         }
         
         return changed
@@ -202,10 +202,27 @@ fun AutoBlindScreen(navController: NavController) {
     suspend fun startRecognition(bitmap: Bitmap) {
         val currentTime = System.currentTimeMillis()
         
-        // Vérifier cooldown
-        if (currentTime - lastRecognitionAt < RECOGNITION_COOLDOWN_MS) {
-            Log.d("AutoBlind", "⏳ Recognition cooldown active, skipping...")
-            return
+        // ✅ Vérifier cooldown (mais permettre si visage a changé de position)
+        val timeSinceLastRecognition = currentTime - lastRecognitionAt
+        if (timeSinceLastRecognition < RECOGNITION_COOLDOWN_MS) {
+            // ✅ Si le visage a changé de position, ignorer le cooldown (changement de direction)
+            if (lastFacePosition != null) {
+                val (hasFace, facePosition) = detectFaceLocally(bitmap)
+                if (hasFace && hasFacePositionChanged(lastFacePosition, facePosition)) {
+                    Log.d("AutoBlind", "🔄 Face position changed, ignoring cooldown for new detection")
+                    // Réinitialiser les tentatives pour nouvelle personne
+                    recognitionAttempts = 0
+                    hasAnnouncedPerson = false
+                    currentPersonId = null
+                    currentPersonName = null
+                } else {
+                    Log.d("AutoBlind", "⏳ Recognition cooldown active (${timeSinceLastRecognition}ms < ${RECOGNITION_COOLDOWN_MS}ms), skipping...")
+                    return
+                }
+            } else {
+                Log.d("AutoBlind", "⏳ Recognition cooldown active, skipping...")
+                return
+            }
         }
         
         // Vérifier nombre de tentatives
@@ -382,12 +399,12 @@ fun AutoBlindScreen(navController: NavController) {
                         faceLastSeenAt = currentTime
                         consecutiveFramesWithoutFace = 0
                         
-                        // ✅ NOUVEAU: Détecter si le visage a changé de position (nouvelle personne)
+                        // ✅ NOUVEAU: Détecter si le visage a changé de position (nouvelle personne ou changement de direction)
                         if (hasFacePositionChanged(lastFacePosition, facePosition)) {
-                            Log.d("AutoBlind", "🔄 Face position changed significantly - new person detected!")
-                            // Reset et redémarrer la détection
+                            Log.d("AutoBlind", "🔄 Face position changed significantly - resetting for new detection!")
+                            // Reset et redémarrer la détection immédiatement
                             resetToIdle()
-                            // Immédiatement passer à FACE_DETECTED
+                            // Immédiatement passer à FACE_DETECTED (pas besoin d'attendre)
                             faceFirstDetectedAt = currentTime
                             faceLastSeenAt = currentTime
                             consecutiveFramesWithFace = 1
@@ -396,14 +413,29 @@ fun AutoBlindScreen(navController: NavController) {
                         } else {
                             // Même personne, mettre à jour position
                             lastFacePosition = facePosition
+                            
+                            // ✅ Si cooldown terminé et visage toujours là, permettre nouvelle reconnaissance
+                            val timeSinceLastRecognition = currentTime - lastRecognitionAt
+                            if (timeSinceLastRecognition >= RECOGNITION_COOLDOWN_MS && !hasAnnouncedPerson) {
+                                // Réinitialiser pour permettre nouvelle reconnaissance
+                                recognitionAttempts = 0
+                                hasAnnouncedPerson = false
+                                currentPersonId = null
+                                currentPersonName = null
+                                Log.d("AutoBlind", "🔄 Cooldown finished, ready for new recognition")
+                            }
                         }
                     } else {
                         consecutiveFramesWithoutFace++
                         
-                        // Si personne disparaît ≥ 5s
+                        // ✅ Si visage disparaît brièvement (changement de direction), reset rapide
                         val timeSinceLastSeen = currentTime - faceLastSeenAt
                         if (timeSinceLastSeen >= DISAPPEAR_THRESHOLD_MS) {
                             Log.d("AutoBlind", "🔄 Person left (${timeSinceLastSeen}ms without face), resetting...")
+                            resetToIdle()
+                        } else if (consecutiveFramesWithoutFace > MAX_FRAMES_WITHOUT_FACE_BEFORE_RESET) {
+                            // ✅ Reset même si pas encore 2s, si beaucoup de frames sans visage (changement rapide)
+                            Log.d("AutoBlind", "🔄 Many frames without face ($consecutiveFramesWithoutFace), resetting...")
                             resetToIdle()
                         }
                     }
@@ -447,6 +479,16 @@ fun AutoBlindScreen(navController: NavController) {
                 "navigate-back" -> {
                     delay(500)
                     navController.popBackStack()
+                }
+                "capture-photo" -> {
+                    // ✅ Capture photo logic requested by backend
+                    Log.d("AutoBlind", "📸 Capture photo requested")
+                    // Wait briefly to ensure we have a fresh frame or just take current
+                    if (currentBitmap != null) {
+                       wsClient.sendPhotoForProcessing(currentBitmap!!)
+                    } else {
+                       voiceService.speak("Caméra non prête")
+                    }
                 }
             }
         }

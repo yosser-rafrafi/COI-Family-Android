@@ -13,6 +13,8 @@ import android.util.Base64
 import tn.esprit.coidam.data.models.Enums.ConnectionState
 import tn.esprit.coidam.data.models.Voice.VoiceInstruction
 import tn.esprit.coidam.data.models.Voice.VoiceResponse
+import android.graphics.Bitmap
+import java.io.ByteArrayOutputStream
 
 /**
  * Client WebSocket pour les commandes vocales (SINGLETON)
@@ -279,6 +281,34 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
 
         Log.d(TAG, "📤 Sending face recognition result")
         socket?.emit("face-recognition-result", data)
+    }
+
+    /**
+     * ✅ Envoyer une photo pour traitement (analyse objets + sauvegarde)
+     */
+    fun sendPhotoForProcessing(bitmap: Bitmap) {
+        if (_connectionState.value != ConnectionState.CONNECTED) {
+            Log.w(TAG, "Not connected. Cannot send photo.")
+            return
+        }
+
+        try {
+            // Compresser en JPEG
+            val outputStream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream) // Qualité 70% pour réduire poids
+            val imageBytes = outputStream.toByteArray()
+            val imageBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
+
+            val data = JSONObject().apply {
+                put("imageBase64", imageBase64)
+                put("timestamp", System.currentTimeMillis().toString())
+            }
+
+            Log.d(TAG, "📤 Sending photo for processing (${imageBytes.size} bytes)")
+            socket?.emit("process-photo", data)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error sending photo: ${e.message}", e)
+        }
     }
 
     /**
