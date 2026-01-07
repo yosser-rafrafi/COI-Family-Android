@@ -212,7 +212,7 @@ fun KnownPersonDetailScreen(navController: NavController, personId: String) {
                         val imageToShow = if (isEditing && imageUri != null) {
                             imageUri
                         } else {
-                            person?.image?.let { Uri.parse(ApiClient.BASE_URL+it) }
+                            person?.image?.let { Uri.parse(ApiClient.BASE_URL+"/"+it) }
                         }
 
                         if (imageToShow != null) {

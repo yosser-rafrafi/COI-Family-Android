@@ -11,7 +11,15 @@ data class Photo(
     @SerializedName("sharedWith") val sharedWith: List<String>?,
     val location: PhotoLocation?,
     @SerializedName("createdAt") val createdAt: Date?,
-    @SerializedName("updatedAt") val updatedAt: Date?
+    @SerializedName("updatedAt") val updatedAt: Date?,
+    val detections: List<Detection>?
+)
+
+data class Detection(
+    val className: String?,
+    val label: String?,
+    val confidence: Float?,
+    val box: List<Float>?
 )
 
 /**

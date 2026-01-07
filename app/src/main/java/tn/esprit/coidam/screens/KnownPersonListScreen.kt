@@ -217,7 +217,7 @@ fun KnownPersonCardModern(person: KnownPerson, onClick: () -> Unit) {
                     Image(
                         painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(LocalContext.current)
-                                .data(ApiClient.BASE_URL+person.image)
+                                .data(ApiClient.BASE_URL+"/"+person.image)
                                 .placeholder(android.R.drawable.progress_indeterminate_horizontal)
                                 .error(android.R.drawable.stat_notify_error)
                                 .build()

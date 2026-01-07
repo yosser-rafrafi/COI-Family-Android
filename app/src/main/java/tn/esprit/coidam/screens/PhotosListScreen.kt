@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -259,7 +260,7 @@ fun PhotoCard(photo: Photo, onClick: () -> Unit) {
             Image(
                 painter = rememberAsyncImagePainter(
                     ImageRequest.Builder(context)
-                        .data("${ApiClient.BASE_URL}photos/${photo.id}/download")
+                        .data("${ApiClient.BASE_URL}/photos/${photo.id}/download")
                         .apply {
                             token.value?.let { authToken ->
                                 addHeader("Authorization", "Bearer $authToken")
@@ -328,7 +329,7 @@ fun PhotoDetailDialog(photo: Photo, onDismiss: () -> Unit) {
                 Image(
                     painter = rememberAsyncImagePainter(
                         ImageRequest.Builder(context)
-                            .data("${ApiClient.BASE_URL}photos/${photo.id}/download")
+                            .data("${ApiClient.BASE_URL}/photos/${photo.id}/download")
                             .apply {
                                 token.value?.let { authToken ->
                                     addHeader("Authorization", "Bearer $authToken")
@@ -372,6 +373,38 @@ fun PhotoDetailDialog(photo: Photo, onDismiss: () -> Unit) {
                         color = Color.Gray
                     )
                 }
+
+                // ✅ Afficher les détections d'objets
+                if (!photo.detections.isNullOrEmpty()) {
+                    Text(
+                        text = "Detected Objects (${photo.detections.size}):",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        photo.detections.forEach { detection ->
+                            val name = detection.className ?: detection.label ?: "Unknown object"
+                            val confidence = detection.confidence?.let { (it * 100).toInt() }
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "$name ${confidence?.let { "($it%)" } ?: ""}",
+                                    fontSize = 14.sp,
+                                    color = Color.DarkGray
+                                )
+                            }
+                        }
+                    }
+                }
+
             }
         },
         confirmButton = {
