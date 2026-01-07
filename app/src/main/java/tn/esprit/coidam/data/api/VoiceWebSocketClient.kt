@@ -9,6 +9,8 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import org.json.JSONObject
 import tn.esprit.coidam.data.local.TokenManager
 import tn.esprit.coidam.data.models.Enums.ConnectionState
@@ -247,32 +249,39 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
     }
 
     /**
-     * ✅ CORRECTION MAJEURE: Envoi de photo avec vérification robuste
+     * ✅ CORRECTION MAJEURE: Envoi de photo avec traitement asynchrone pour éviter de bloquer le socket
      */
-    fun sendPhotoForProcessing(bitmap: Bitmap) {
-        // ✅ Vérifier PLUSIEURS fois l'état de connexion
+    suspend fun sendPhotoForProcessing(bitmap: Bitmap) = withContext(Dispatchers.IO) {
+        // ✅ Vérifier l'état de connexion sur le thread IO
         val currentState = _connectionState.value
         val isSocketConnected = socket?.connected() == true
 
-        Log.d(TAG, "📸 sendPhotoForProcessing called")
-        Log.d(TAG, "   - ConnectionState: $currentState")
-        Log.d(TAG, "   - Socket?.connected(): $isSocketConnected")
-        Log.d(TAG, "   - Socket ID: ${socket?.id()}")
+        Log.d(TAG, "📸 sendPhotoForProcessing (IO) called")
 
         if (currentState != ConnectionState.CONNECTED || !isSocketConnected) {
             Log.e(TAG, "❌ CANNOT SEND PHOTO: Not connected!")
-            Log.e(TAG, "   - ConnectionState: $currentState")
-            Log.e(TAG, "   - Socket connected: $isSocketConnected")
-            return
+            return@withContext
         }
 
         try {
-            // ✅ Compression plus agressive pour réduire la taille
+            // ✅ Compression en arrière-plan
             val outputStream = ByteArrayOutputStream()
-            val compressionQuality = 60 // Réduire de 70% à 60%
+            val compressionQuality = 60 
 
-            Log.d(TAG, "📸 Compressing bitmap (quality: $compressionQuality%)...")
-            val compressionSuccess = bitmap.compress(
+            Log.d(TAG, "📸 Compressing bitmap (60%)...")
+            
+            // ✅ Resize if too big (e.g. max dimension > 1024) to avoid crashes/timeouts
+            val maxDimension = 1024
+            var bitmapToSend = bitmap
+            if (bitmap.width > maxDimension || bitmap.height > maxDimension) {
+                val scale = maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height)
+                val newWidth = (bitmap.width * scale).toInt()
+                val newHeight = (bitmap.height * scale).toInt()
+                Log.d(TAG, "📏 Resizing bitmap from ${bitmap.width}x${bitmap.height} to ${newWidth}x${newHeight}")
+                bitmapToSend = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+            }
+
+            val compressionSuccess = bitmapToSend.compress(
                 Bitmap.CompressFormat.JPEG,
                 compressionQuality,
                 outputStream
@@ -280,44 +289,35 @@ class VoiceWebSocketClient private constructor(private val context: Context) {
 
             if (!compressionSuccess) {
                 Log.e(TAG, "❌ Bitmap compression failed!")
-                return
+                return@withContext
             }
 
             val imageBytes = outputStream.toByteArray()
             val imageBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
 
-            Log.d(TAG, "✅ Photo compressed successfully")
-            Log.d(TAG, "   - Original size: ${bitmap.byteCount} bytes")
-            Log.d(TAG, "   - Compressed size: ${imageBytes.size} bytes")
-            Log.d(TAG, "   - Base64 length: ${imageBase64.length}")
-            Log.d(TAG, "   - Compression ratio: ${String.format("%.1f", (imageBytes.size.toFloat() / bitmap.byteCount) * 100)}%")
+            Log.d(TAG, "✅ Photo compressed: ${imageBytes.size} bytes. Base64: ${imageBase64.length}")
 
             val data = JSONObject().apply {
                 put("imageBase64", imageBase64)
                 put("timestamp", System.currentTimeMillis().toString())
             }
 
-            // ✅ Vérifier UNE DERNIÈRE FOIS avant émission
-            if (socket?.connected() != true) {
-                Log.e(TAG, "❌ Socket disconnected just before emit!")
-                return
+            // ✅ Émission sur le thread Socket.IO (géré par la bibliothèque)
+            if (socket?.connected() == true) {
+                Log.d(TAG, "📤 Emitting 'process-photo'...")
+                socket?.emit("process-photo", data, Ack { args ->
+                    if (args.isNotEmpty() && args[0] != null) {
+                        Log.e(TAG, "❌ Server error: ${args[0]}")
+                    } else {
+                        Log.d(TAG, "✅ process-photo acknowledged")
+                    }
+                })
+            } else {
+                Log.e(TAG, "❌ Socket disconnected before emit!")
             }
 
-            Log.d(TAG, "📤 Emitting 'process-photo' event...")
-
-            socket?.emit("process-photo", data, Ack { args ->
-                if (args.isNotEmpty() && args[0] != null) {
-                    Log.e(TAG, "❌ Server error on process-photo: ${args[0]}")
-                } else {
-                    Log.d(TAG, "✅ process-photo acknowledged by server")
-                }
-            })
-
-            Log.d(TAG, "✅ process-photo event emitted successfully")
-
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error in sendPhotoForProcessing: ${e.message}", e)
-            e.printStackTrace()
+            Log.e(TAG, "❌ Error in sendPhotoForProcessing: ${e.message}")
         }
     }
 

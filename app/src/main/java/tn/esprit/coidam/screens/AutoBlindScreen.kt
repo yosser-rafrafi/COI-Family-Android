@@ -76,6 +76,10 @@ fun AutoBlindScreen(navController: NavController) {
     var showExitDialog by remember { mutableStateOf(false) }
     var currentBitmap by remember { mutableStateOf<Bitmap?>(null) }
     
+    // ✅ OPTIMISATION: Contrôle de capture pour éviter les captures multiples
+    var alreadyCaptured by remember { mutableStateOf(false) }
+    var cameraAnalysisEnabled by remember { mutableStateOf(true) }
+    
     // ✅ MACHINE À ÉTATS - Variables d'état
     var detectionState by remember { mutableStateOf(DetectionState.IDLE) }
     var faceFirstDetectedAt by remember { mutableLongStateOf(0L) }
@@ -87,7 +91,7 @@ fun AutoBlindScreen(navController: NavController) {
     var hasAnnouncedDetection by remember { mutableStateOf(false) }
     var hasAnnouncedPerson by remember { mutableStateOf(false) }
     var recognitionAttempts by remember { mutableIntStateOf(0) }
-    var consecutiveFramesWithFace by remember { mutableIntStateOf(0) }
+    var consecutiveramesWithFace by remember { mutableIntStateOf(0) }
     var consecutiveFramesWithoutFace by remember { mutableIntStateOf(0) }
     var detectionCount by remember { mutableIntStateOf(0) }
     var lastFacePosition by remember { mutableStateOf<android.graphics.RectF?>(null) }  // ✅ Tracker position du visage
@@ -101,13 +105,13 @@ fun AutoBlindScreen(navController: NavController) {
     val FRAME_ANALYSIS_INTERVAL_MS = 200L          // ✅ Réduit à 200ms entre analyses (plus réactif)
     val MAX_FRAMES_WITHOUT_FACE_BEFORE_RESET = 10  // ✅ Réduit à 10 frames (~2s) pour reset rapide
     
-    // ✅ ML Kit Face Detector
+    // ✅ ML Kit Face Detector - OPTIMISÉ POUR PERFORMANCE MAXIMALE
     val faceDetector = remember {
         val options = FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)  // ✅ Mode rapide
             .setMinFaceSize(0.15f)
-            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)        // ✅ Désactivé (non nécessaire)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)  // ✅ Désactivé (non nécessaire)
             .build()
         FaceDetection.getClient(options)
     }
@@ -171,7 +175,7 @@ fun AutoBlindScreen(navController: NavController) {
         detectionState = DetectionState.IDLE
         faceFirstDetectedAt = 0L
         faceLastSeenAt = 0L
-        consecutiveFramesWithFace = 0
+        consecutiveramesWithFace = 0
         consecutiveFramesWithoutFace = 0
         hasAnnouncedDetection = false
         hasAnnouncedPerson = false
@@ -179,6 +183,8 @@ fun AutoBlindScreen(navController: NavController) {
         currentPersonId = null
         currentPersonName = null
         lastFacePosition = null  // ✅ Reset position
+        alreadyCaptured = false  // ✅ Reset capture flag
+        cameraAnalysisEnabled = true  // ✅ Re-enable analysis
     }
     
     // ✅ Annonce personne reconnue
@@ -309,6 +315,11 @@ fun AutoBlindScreen(navController: NavController) {
     
     // ✅ Traitement frame caméra (MACHINE À ÉTATS)
     fun onCameraFrame(bitmap: Bitmap) {
+        // ✅ OPTIMISATION: Ne pas traiter si l'analyse est désactivée
+        if (!cameraAnalysisEnabled) {
+            return
+        }
+        
         scope.launch {
             val currentTime = System.currentTimeMillis()
             
@@ -327,7 +338,7 @@ fun AutoBlindScreen(navController: NavController) {
                         // Transition: IDLE → FACE_DETECTED
                         faceFirstDetectedAt = currentTime
                         faceLastSeenAt = currentTime
-                        consecutiveFramesWithFace = 1
+                        consecutiveramesWithFace = 1
                         consecutiveFramesWithoutFace = 0
                         lastFacePosition = facePosition  // ✅ Sauvegarder position
                         detectionState = DetectionState.FACE_DETECTED
@@ -337,7 +348,7 @@ fun AutoBlindScreen(navController: NavController) {
                 
                 DetectionState.FACE_DETECTED -> {
                     if (hasFace) {
-                        consecutiveFramesWithFace++
+                        consecutiveramesWithFace++
                         consecutiveFramesWithoutFace = 0  // ✅ Reset counter
                         faceLastSeenAt = currentTime
                         lastFacePosition = facePosition  // ✅ Mettre à jour position
@@ -409,7 +420,7 @@ fun AutoBlindScreen(navController: NavController) {
                             // Immédiatement passer à FACE_DETECTED (pas besoin d'attendre)
                             faceFirstDetectedAt = currentTime
                             faceLastSeenAt = currentTime
-                            consecutiveFramesWithFace = 1
+                            consecutiveramesWithFace = 1
                             lastFacePosition = facePosition
                             detectionState = DetectionState.FACE_DETECTED
                         } else {
@@ -478,7 +489,7 @@ fun AutoBlindScreen(navController: NavController) {
     // ✅ Contrôleur capture
     val captureController = remember { CaptureController() }
 
-    // ✅ Gérer les réponses du serveur
+    // ✅ Gérer les réponses du serveur (Commandes immédiates)
     LaunchedEffect(voiceResponse) {
         voiceResponse?.let { response ->
             Log.d("AutoBlind", "📨 Voice response received: action=${response.action}, message=${response.message}")
@@ -493,16 +504,94 @@ fun AutoBlindScreen(navController: NavController) {
                     navController.popBackStack()
                 }
                 "capture-photo" -> {
-                    // ✅ Trigger High-Res Capture via Controller
-                    Log.d("AutoBlind", "📸 Capture photo requested (Action)")
-                    delay(500) // Petit délai pour que le TTS commence
-                    captureController.capturePhoto?.invoke()
+                    // ✅ OPTIMISATION: Capture unique avec contrôle
+                    if (!alreadyCaptured) {
+                        Log.d("AutoBlind", "📸 Capture photo requested (Action) - First capture")
+                        alreadyCaptured = true
+                        
+                        // ✅ Pause l'analyse caméra pour améliorer la réactivité
+                        cameraAnalysisEnabled = false
+                        Log.d("AutoBlind", "⏸️ Camera analysis paused for capture")
+                        
+                        delay(500) // Petit délai pour que le TTS commence
+                        captureController.capturePhoto?.invoke()
+                    } else {
+                        Log.d("AutoBlind", "⚠️ Capture already done, ignoring request")
+                    }
+                }
+                else -> {
+                    // Gérer la navigation si présente
+                    response.navigation?.let { dest ->
+                        Log.d("AutoBlind", "🚀 Navigating to: $dest (from response)")
+                        navController.navigate(dest)
+                    }
                 }
             }
         }
     }
 
-    // ✅ Initialisation (only connect if needed)
+    // ✅ NOUVEAU: Gérer les instructions de détection Yolo (Résultats)
+    LaunchedEffect(voiceInstruction) {
+        voiceInstruction?.let { instruction ->
+            Log.d("AutoBlind", "🔊 Received voice instruction: ${instruction.action} -> ${instruction.text}")
+            
+            // Par exemple: "Photo enregistrée. Détection terminée. 2 objets détectés: bottle, person."
+            voiceService.speak(instruction.text) {
+                // ✅ Une fois que le résultat est lu, on peut reprendre l'analyse
+                if (!cameraAnalysisEnabled) {
+                    Log.d("AutoBlind", "▶️ Resuming camera analysis after result announcement")
+                    cameraAnalysisEnabled = true
+                    alreadyCaptured = false // Prêt pour une nouvelle capture si demandée
+                }
+                
+                // Gérer la navigation si présente dans l'instruction
+                instruction.navigation?.let { dest ->
+                    Log.d("AutoBlind", "🚀 Navigating to: $dest (from instruction)")
+                    navController.navigate(dest)
+                }
+            }
+        }
+    }
+
+    // ✅ NOUVEAU: Gérer les changements de connexion WebSocket (Feedback vocal + Resilience)
+    LaunchedEffect(connectionState) {
+        when (connectionState) {
+            ConnectionState.CONNECTED -> {
+                voiceService.speak("Serveur connecté.")
+                // ✅ RESILIENCE: Si on se reconnecte, on réactive tout par sécurité
+                cameraAnalysisEnabled = true
+                alreadyCaptured = false
+            }
+            ConnectionState.DISCONNECTED -> {
+                if (isCameraActive) {
+                    voiceService.speak("Connexion au serveur perdue.")
+                    // ✅ RESILIENCE: Si on perd la connexion pendant une capture, 
+                    // on réactive l'analyse pour ne pas rester bloqué
+                    cameraAnalysisEnabled = true
+                    alreadyCaptured = false
+                }
+            }
+            ConnectionState.ERROR -> {
+                voiceService.speak("Erreur de connexion au serveur.")
+                cameraAnalysisEnabled = true
+                alreadyCaptured = false
+            }
+            else -> {}
+        }
+    }
+
+    // ✅ NOUVEAU: Activation automatique du MICRO dès que possible
+    // (Attendre que le service soit prêt ET que le serveur soit connecté)
+    LaunchedEffect(connectionState, isVoiceReady) {
+        if (connectionState == ConnectionState.CONNECTED && isVoiceReady && !isListening) {
+            Log.d("AutoBlind", "🎤 Auto-starting microphone...")
+            delay(1000) // Petit délai pour laisser passer le "Serveur connecté"
+            voiceService.startListening()
+            isListening = true
+        }
+    }
+
+    // ✅ Initialisation (caméra uniquement, le micro est géré par l'effet ci-dessus)
     LaunchedEffect(permissionsState.allPermissionsGranted) {
         if (permissionsState.allPermissionsGranted) {
             if (wsClient.shouldReconnect()) {
@@ -512,20 +601,17 @@ fun AutoBlindScreen(navController: NavController) {
                 Log.d("AutoBlind", "✅ Socket already connected, reusing")
             }
             delay(1000)
-            voiceService.startListening()
-            isListening = true
-            delay(1000)
             isCameraActive = true
-            voiceService.speak("Mode automatique activé. Caméra et micro en marche.")
         }
     }
 
-    // ✅ Cleanup (only local resources, not WebSocket)
+    // ✅ Cleanup: Disconnect ONLY when leaving AutoBlind mode
     DisposableEffect(Unit) {
         onDispose {
+            Log.d("AutoBlind", "🚪 Exiting AutoBlind mode - Cleaning up...")
             isCameraActive = false
             voiceService.cleanup()
-            // Don't disconnect WebSocket - let MainActivity handle it
+            wsClient.disconnect() // ✅ Explicit disconnect as requested
         }
     }
 
@@ -541,20 +627,20 @@ fun AutoBlindScreen(navController: NavController) {
                 },
                 onPhotoCaptured = { hdBitmap ->
                     // Flux haute qualité pour YOLO
-                    Log.d("AutoBlind", "✅ HD Photo Captured. Size: ${hdBitmap.width}x${hdBitmap.height}. Sending to backend for object recognition...")
+                    Log.d("AutoBlind", "✅ HD Photo Captured. Sending to backend...")
                     
-                    // Vérifier la connexion WebSocket avant d'envoyer
-                    if (wsClient.connectionState.value == tn.esprit.coidam.data.models.Enums.ConnectionState.CONNECTED) {
-                        wsClient.sendPhotoForProcessing(hdBitmap)
-                    } else {
-                        Log.e("AutoBlind", "❌ Cannot send photo: WebSocket not connected (state: ${wsClient.connectionState.value})")
-                        voiceService.speak("Erreur: connexion au serveur perdue. Reconnexion...")
-                        // Tenter une reconnexion
-                        scope.launch {
-                            wsClient.connect()
+                    scope.launch {
+                        if (wsClient.connectionState.value == ConnectionState.CONNECTED) {
+                            wsClient.sendPhotoForProcessing(hdBitmap)
+                        } else {
+                            Log.e("AutoBlind", "❌ Cannot send: WebSocket not connected")
+                            voiceService.speak("Erreur: connexion perdue.")
+                            cameraAnalysisEnabled = true
+                            alreadyCaptured = false
                         }
                     }
-                }
+                },
+                analysisEnabled = cameraAnalysisEnabled
             )
 
         } else {
@@ -813,7 +899,7 @@ fun AutoBlindScreen(navController: NavController) {
                         scope.launch {
                             isCameraActive = false
                             voiceService.cleanup()
-                            // Don't disconnect WebSocket - let MainActivity handle it
+                            wsClient.disconnect() // ✅ Déconnexion explicite
                             voiceService.speak("Mode automatique désactivé")
                             delay(1000)
                             navController.popBackStack()
@@ -843,17 +929,39 @@ fun SmartCameraPreview(
     modifier: Modifier = Modifier,
     captureController: CaptureController,
     onFrameAnalyzed: (Bitmap) -> Unit, // Pour le Visage (basse res)
-    onPhotoCaptured: (Bitmap) -> Unit // Pour YOLO (haute res)
+    onPhotoCaptured: (Bitmap) -> Unit, // Pour YOLO (haute res)
+    analysisEnabled: Boolean = true // ✅ Contrôle dynamique de l'analyse
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val previewView = remember { PreviewView(context) }
+    
+    // ✅ Référence mutable pour contrôler l'analyseur
+    var imageAnalyzerRef by remember { mutableStateOf<ImageAnalysis?>(null) }
 
     AndroidView(
         factory = { previewView },
         modifier = modifier
     )
+    
+    // ✅ Observer les changements d'analysisEnabled pour activer/désactiver l'analyse
+    LaunchedEffect(analysisEnabled) {
+        imageAnalyzerRef?.let { analyzer ->
+            if (analysisEnabled) {
+                Log.d("SmartCamera", "▶️ Resuming camera analysis")
+                analyzer.clearAnalyzer()
+                analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
+                    val bitmap = imageProxy.toBitmap()
+                    onFrameAnalyzed(bitmap)
+                    imageProxy.close()
+                }
+            } else {
+                Log.d("SmartCamera", "⏸️ Pausing camera analysis")
+                analyzer.clearAnalyzer()
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -864,17 +972,20 @@ fun SmartCameraPreview(
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
 
-        // 2. Image Analysis (Visage - Stream Realtime)
+        // 2. Image Analysis (Visage - Stream Realtime) - OPTIMISÉ
         val imageAnalyzer = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setTargetResolution(android.util.Size(320, 240))  // ✅ Résolution réduite pour performance
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)  // ✅ Garder seulement la dernière frame
             .build()
             .also { analyzer ->
                 analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
                     val bitmap = imageProxy.toBitmap()
                     onFrameAnalyzed(bitmap)
-                    imageProxy.close()
+                    imageProxy.close()  // ✅ Libération correcte des ressources
                 }
             }
+        
+        imageAnalyzerRef = imageAnalyzer  // ✅ Sauvegarder la référence
 
         // 3. Image Capture (YOLO - Haute Qualité)
         val imageCapture = ImageCapture.Builder()
