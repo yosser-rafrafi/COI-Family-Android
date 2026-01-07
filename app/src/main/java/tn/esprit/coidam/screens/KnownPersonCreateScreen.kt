@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -40,6 +41,14 @@ fun KnownPersonCreateScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
+    var showRelationshipPicker by remember { mutableStateOf(false) }
+
+    val relationships = listOf(
+        "Famille",
+        "Ami(e)",
+        "Aide-soignant(e)",
+        "Autre"
+    )
 
     val context = LocalContext.current
     val repository = remember { KnownPersonRepository(context) }
@@ -178,18 +187,36 @@ fun KnownPersonCreateScreen(navController: NavController) {
                 )
             )
 
-            // Relation Field
-            OutlinedTextField(
-                value = relation,
-                onValueChange = { relation = it },
-                label = { Text("Relation") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF70CEE3),
-                    focusedLabelColor = Color(0xFF70CEE3)
+            // Relation Field (Selection Picker)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRelationshipPicker = true }
+            ) {
+                OutlinedTextField(
+                    value = relation,
+                    onValueChange = { },
+                    readOnly = true,
+                    enabled = false,
+                    label = { Text("Relation") },
+                    placeholder = { Text("Sélectionnez") },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Select",
+                            tint = Color(0xFF9E9E9E)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledLabelColor = Color(0xFF9E9E9E),
+                        disabledTextColor = Color(0xFF333333),
+                        disabledTrailingIconColor = Color(0xFF9E9E9E)
+                    )
                 )
-            )
+            }
 
             // Phone Field
             OutlinedTextField(
@@ -243,6 +270,38 @@ fun KnownPersonCreateScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = { showDialog = false }) {
                     Text("OK")
+                }
+            }
+        )
+    }
+
+    // Relationship Picker Dialog
+    if (showRelationshipPicker) {
+        AlertDialog(
+            onDismissRequest = { showRelationshipPicker = false },
+            title = { Text("Sélectionnez la relation") },
+            text = {
+                Column {
+                    relationships.forEach { rel ->
+                        TextButton(
+                            onClick = {
+                                relation = rel
+                                showRelationshipPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = rel,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRelationshipPicker = false }) {
+                    Text("Annuler")
                 }
             }
         )

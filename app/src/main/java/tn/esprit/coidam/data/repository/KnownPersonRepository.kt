@@ -183,7 +183,7 @@ class KnownPersonRepository(private val context: Context) {
         }
     }
 
-    private suspend fun uploadImage(uri: Uri): Result<String> {
+    suspend fun uploadImage(uri: Uri): Result<String> {
         return try {
             val token = tokenManager.getTokenSync()
             if (token == null) {

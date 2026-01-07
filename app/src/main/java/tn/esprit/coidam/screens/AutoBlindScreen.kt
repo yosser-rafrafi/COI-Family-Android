@@ -95,11 +95,12 @@ fun AutoBlindScreen(navController: NavController) {
     var consecutiveFramesWithoutFace by remember { mutableIntStateOf(0) }
     var detectionCount by remember { mutableIntStateOf(0) }
     var lastFacePosition by remember { mutableStateOf<android.graphics.RectF?>(null) }  // ✅ Tracker position du visage
+    var isProcessingCommand by remember { mutableStateOf(false) } // ✅ État occupé pour éviter conflits
     
     // ✅ Configuration (ULTRA-OPTIMISÉ pour réactivité maximale - utilisateur aveugle)
     val STABILITY_THRESHOLD_MS = 300L              // ✅ Réduit à 300ms pour déclenchement ultra-rapide
     val DISAPPEAR_THRESHOLD_MS = 2000L             // ✅ Réduit à 2s sans visage = reset rapide (pour changement de direction)
-    val RECOGNITION_COOLDOWN_MS = 1000L            // ✅ Réduit à 1s entre deux reconnaissances (réactivité maximale)
+    val RECOGNITION_COOLDOWN_MS = 2000L            // ✅ Augmenté à 2s pour éviter rafales
     val MIN_CONFIDENCE = 0.3f                      // Confiance minimum pour annoncer
     val MAX_RECOGNITION_ATTEMPTS = 3               // Maximum 3 captures
     val FRAME_ANALYSIS_INTERVAL_MS = 200L          // ✅ Réduit à 200ms entre analyses (plus réactif)
@@ -157,9 +158,9 @@ fun AutoBlindScreen(navController: NavController) {
         val deltaX = kotlin.math.abs(newCenterX - oldCenterX)
         val deltaY = kotlin.math.abs(newCenterY - oldCenterY)
         
-        // ✅ Utiliser la largeur du visage comme référence (20% de déplacement - plus sensible)
+        // ✅ Utiliser la largeur du visage comme référence (40% de déplacement - moins sensible pour éviter rafales)
         val faceWidth = oldRect.right - oldRect.left
-        val threshold = faceWidth * 0.2f  // Réduit de 30% à 20% pour détecter plus rapidement
+        val threshold = faceWidth * 0.4f
         
         val changed = deltaX > threshold || deltaY > threshold
         if (changed) {
@@ -209,6 +210,12 @@ fun AutoBlindScreen(navController: NavController) {
     // ✅ Reconnaissance faciale
     suspend fun startRecognition(bitmap: Bitmap) {
         val currentTime = System.currentTimeMillis()
+        
+        // ✅ Eviter les chevauchements : Si déjà en reconnaissance, annuler
+        if (detectionState == DetectionState.RECOGNIZING) {
+             Log.d("AutoBlind", "⚠️ Recognition already in progress, skipping request")
+             return
+        }
         
         // ✅ Vérifier cooldown (mais permettre si visage a changé de position)
         val timeSinceLastRecognition = currentTime - lastRecognitionAt
@@ -476,9 +483,16 @@ fun AutoBlindScreen(navController: NavController) {
                     showExitDialog = true
                 }
                 else -> {
-                    // Envoyer au serveur
-                    Log.d("AutoBlind", "📤 Sending voice command: $recognizedText")
-                    wsClient.sendVoiceCommand(recognizedText)
+                    // ✅ Vérifier si système occupé
+                    if (isProcessingCommand) {
+                        Log.d("AutoBlind", "⏳ System busy, ignoring command: $recognizedText")
+                        voiceService.speak("Un instant, traitement en cours.")
+                    } else {
+                        // Envoyer au serveur
+                        Log.d("AutoBlind", "📤 Sending voice command: $recognizedText")
+                        isProcessingCommand = true // 🔒 Verrouiller
+                        wsClient.sendVoiceCommand(recognizedText)
+                    }
                     // ✅ Réinitialiser le texte reconnu pour éviter les traitements multiples
                     // Le service redémarrera automatiquement l'écoute
                 }
@@ -493,6 +507,7 @@ fun AutoBlindScreen(navController: NavController) {
     LaunchedEffect(voiceResponse) {
         voiceResponse?.let { response ->
             Log.d("AutoBlind", "📨 Voice response received: action=${response.action}, message=${response.message}")
+            isProcessingCommand = false // 🔓 Déverrouiller
             
             response.speakText?.let { 
                 voiceService.speak(it) 
@@ -534,6 +549,7 @@ fun AutoBlindScreen(navController: NavController) {
     LaunchedEffect(voiceInstruction) {
         voiceInstruction?.let { instruction ->
             Log.d("AutoBlind", "🔊 Received voice instruction: ${instruction.action} -> ${instruction.text}")
+            isProcessingCommand = false // 🔓 Déverrouiller (si c'était une commande qui a généré ça)
             
             // Par exemple: "Photo enregistrée. Détection terminée. 2 objets détectés: bottle, person."
             voiceService.speak(instruction.text) {

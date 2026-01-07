@@ -13,6 +13,7 @@ import tn.esprit.coidam.data.models.AuthDto.SignInDto
 import tn.esprit.coidam.data.models.AuthDto.SignUpDto
 import tn.esprit.coidam.data.models.AuthDto.UpdatePasswordDto
 import tn.esprit.coidam.data.models.AuthDto.UpdateProfileDto
+import tn.esprit.coidam.data.models.AuthDto.UpdateBlindProfileDto
 
 class AuthRepository(private val context: Context) {
     private val apiService = ApiClient.authApiService
@@ -378,6 +379,46 @@ class AuthRepository(private val context: Context) {
 
     suspend fun isLoggedIn(): Boolean {
         return tokenManager.getTokenSync() != null
+    }
+
+    // ✅ Fonction pour mettre à jour le profil blind
+    suspend fun updateBlindProfile(
+        blindUserId: String,
+        firstName: String,
+        lastName: String? = null,
+        phoneNumber: String? = null,
+        relation: String? = null,
+        profileImage: String? = null
+    ): Result<UserResponse> {
+        return try {
+            val token = tokenManager.getTokenSync()
+            if (token == null) {
+                return Result.failure(Exception("No authentication token found"))
+            }
+
+            val dto = UpdateBlindProfileDto(
+                blindUserId = blindUserId,
+                firstName = firstName,
+                lastName = lastName,
+                phoneNumber = phoneNumber,
+                relation = relation,
+                profileImage = profileImage
+            )
+
+            val response = apiService.updateBlindProfile("Bearer $token", dto)
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val errorMessage = errorBody ?: "Failed to update blind profile"
+                Log.e(TAG, "Update blind profile error: $errorMessage")
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Update blind profile exception: ${e.message}", e)
+            Result.failure(e)
+        }
     }
 }
 

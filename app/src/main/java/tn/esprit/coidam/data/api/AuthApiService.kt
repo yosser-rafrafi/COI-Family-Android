@@ -10,6 +10,7 @@ import tn.esprit.coidam.data.models.AuthDto.SignInDto
 import tn.esprit.coidam.data.models.AuthDto.SignUpDto
 import tn.esprit.coidam.data.models.AuthDto.UpdatePasswordDto
 import tn.esprit.coidam.data.models.AuthDto.UpdateProfileDto
+import tn.esprit.coidam.data.models.AuthDto.UpdateBlindProfileDto
 
 interface AuthApiService {
     @POST("auth/signup")
@@ -49,6 +50,12 @@ interface AuthApiService {
     suspend fun updateProfile(
         @Header("Authorization") token: String,
         @Body dto: UpdateProfileDto
+    ): Response<UserResponse>
+
+    @PUT("auth/blind/profile")
+    suspend fun updateBlindProfile(
+        @Header("Authorization") token: String,
+        @Body dto: UpdateBlindProfileDto
     ): Response<UserResponse>
 }
 
